@@ -1,0 +1,84 @@
+import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
+import { insertPaymentIfSupported, addPaymentEventIfSupported } from "../_utils/payments.js";
+
+const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
+const CLICK_DEVELOPER_USER = process.env.CLICK_DEVELOPER_USER;
+const CLICK_KEY = process.env.CLICK_KEY;
+const MIN_ORDER_KWD = Number(process.env.MIN_ORDER_KWD || 0);
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const { orderId } = body;
+    if (!orderId) return res.status(400).json({ error: "orderId required" });
+    if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
+
+    const { data: order, error: oErr } = await supabaseAdmin
+      .from("orders")
+      .select("*")
+      .eq("id", orderId)
+      .single();
+    if (oErr) throw oErr;
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (String(order.status) === "paid") return res.status(400).json({ error: "Order already paid" });
+    if (order.mf_session_id) {
+      return res.json({ sessionId: String(order.mf_session_id), indicator: String(order.payment_ref || "") });
+    }
+    if (!Number(order.total_kwd) || Number(order.total_kwd) <= 0) return res.status(400).json({ error: "Invalid amount" });
+    if (MIN_ORDER_KWD > 0 && Number(order.total_kwd) < MIN_ORDER_KWD) {
+      return res.status(400).json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
+    }
+
+    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CLICK_KEY}`,
+      },
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      return res.status(502).json({ error: "click_create_session_failed", status: r.status, body: txt });
+    }
+    const payload = await r.json().catch(() => ({}));
+    const ses = payload?.gatewayResponse || {};
+    if (!ses.session_id || !ses.indicator_status) {
+      return res.status(400).json({ error: "Failed to create session", details: payload });
+    }
+
+    await supabaseAdmin
+      .from("orders")
+      .update({
+        mf_session_id: String(ses.session_id),
+        payment_ref: String(ses.indicator_status),
+      })
+      .eq("id", orderId);
+
+    // Soft-create a payments row and event (if payments table exists)
+    const ins = await insertPaymentIfSupported({
+      orderId,
+      amountKwd: order.total_kwd,
+      currency: order.currency || "KWD",
+      sessionId: String(ses.session_id),
+      indicatorToken: String(ses.indicator_status),
+      status: "initiated",
+      method: 'CARD',
+      gatewayRaw: payload || null,
+    });
+    if (ins?.id) {
+      await addPaymentEventIfSupported({ paymentId: ins.id, event: "session_created", payload: payload || null });
+    } else if (ins?.error) {
+      try { console.warn("payments.insert failed", String(ins.error?.message || ins.error)); } catch {}
+    }
+
+    return res.json({ sessionId: String(ses.session_id), indicator: String(ses.indicator_status) });
+  } catch (e) {
+    console.error("/api/payments/session error", e);
+    const dev = process.env.NODE_ENV !== 'production';
+    return res.status(500).json(dev ? { error: "internal_error", message: String(e?.message||e), stack: e?.stack } : { error: "internal_error" });
+  }
+}
+
+

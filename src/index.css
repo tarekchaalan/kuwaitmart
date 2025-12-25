@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Checkmark animation (SVG + CSS) */
+.checkmark {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: block;
+  stroke-width: 2;
+  stroke: #fff;
+  stroke-miterlimit: 10;
+  box-shadow: inset 0 0 0 #7ac142;
+  animation: cm-fill .4s ease-in-out .4s forwards, cm-scale .3s ease-in-out .9s both;
+}
+
+.checkmark__circle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  stroke-width: 2;
+  stroke-miterlimit: 10;
+  stroke: #7ac142;
+  fill: none;
+  animation: cm-stroke .6s cubic-bezier(0.650, 0.000, 0.450, 1.000) forwards;
+}
+
+.checkmark__check {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: cm-stroke .3s cubic-bezier(0.650, 0.000, 0.450, 1.000) .8s forwards;
+}
+
+/* Compact variant for buttons */
+.checkmark--sm {
+  width: 20px;
+  height: 20px;
+  animation: cm-fill-sm .4s ease-in-out .4s forwards, cm-scale .3s ease-in-out .9s both;
+}
+
+@keyframes cm-stroke {
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes cm-scale {
+  0%, 100% { transform: none; }
+  50% { transform: scale3d(1.1, 1.1, 1); }
+}
+
+@keyframes cm-fill {
+  100% { box-shadow: inset 0 0 0 30px #7ac142; }
+}
+
+@keyframes cm-fill-sm {
+  100% { box-shadow: inset 0 0 0 10px #7ac142; }
+}
+
+
