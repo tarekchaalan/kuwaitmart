@@ -255,6 +255,8 @@ function Dashboard() {
 function Categories() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState({ slug:'', name_en:'', name_ar:'', position:0 });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const load = async () => { const { data } = await supabase.from('categories').select('*').order('position'); setRows(data||[]); };
   useEffect(()=>{ load(); }, []);
 
@@ -266,7 +268,27 @@ function Categories() {
     load();
   };
 
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setEditForm({ slug: row.slug, name_en: row.name_en, name_ar: row.name_ar, position: row.position });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.slug || !editForm.name_en || !editForm.name_ar) return;
+    const { error } = await supabase.from('categories').update(editForm).eq('id', editingId);
+    if (error) { console.error(error); alert(`Error updating category: ${error.message}`); return; }
+    setEditingId(null);
+    setEditForm({});
+    load();
+  };
+
   const remove = async (id) => {
+    if (!confirm('Are you sure you want to delete this category? Products will lose this category association.')) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (error) { console.error(error); alert(`Error deleting category: ${error.message}`); return; }
     load();
@@ -293,11 +315,54 @@ function Categories() {
           <tbody>
             {rows.map(r=> (
               <tr key={r.id} className="border-t">
-                <td className="py-2">{r.slug}</td>
-                <td>{r.name_en}</td>
-                <td>{r.name_ar}</td>
-                <td>{r.position}</td>
-                <td className="text-right"><button onClick={()=>remove(r.id)} className="text-rose-600">Delete</button></td>
+                {editingId === r.id ? (
+                  <>
+                    <td className="py-2">
+                      <input
+                        value={editForm.slug}
+                        onChange={e=>setEditForm({...editForm, slug:e.target.value})}
+                        className="w-full rounded border px-2 py-1 text-sm"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={editForm.name_en}
+                        onChange={e=>setEditForm({...editForm, name_en:e.target.value})}
+                        className="w-full rounded border px-2 py-1 text-sm"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={editForm.name_ar}
+                        onChange={e=>setEditForm({...editForm, name_ar:e.target.value})}
+                        className="w-full rounded border px-2 py-1 text-sm"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={editForm.position}
+                        onChange={e=>setEditForm({...editForm, position:Number(e.target.value)})}
+                        className="w-20 rounded border px-2 py-1 text-sm"
+                      />
+                    </td>
+                    <td className="text-right space-x-2">
+                      <button onClick={saveEdit} className="text-emerald-600 font-medium">Save</button>
+                      <button onClick={cancelEdit} className="text-slate-600">Cancel</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-2">{r.slug}</td>
+                    <td>{r.name_en}</td>
+                    <td>{r.name_ar}</td>
+                    <td>{r.position}</td>
+                    <td className="text-right space-x-2">
+                      <button onClick={()=>startEdit(r)} className="text-blue-600">Edit</button>
+                      <button onClick={()=>remove(r.id)} className="text-rose-600">Delete</button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

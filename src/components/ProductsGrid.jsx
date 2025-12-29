@@ -191,7 +191,8 @@ export default function ProductsGrid({ store, t }) {
       <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-800">
         {catLabel}
       </h2>
-      <RestockNotice lang={store.lang} className="mb-4" />
+      {/* RestockNotice: Set show={true} to display the banner */}
+      {/* <RestockNotice lang={store.lang} className="mb-4" show={false} /> */}
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

@@ -87,7 +87,8 @@ export default function OrdersPage({ store, t }) {
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
         {t.myOrders}
       </h2>
-      <RestockNotice lang={store.lang} className="mb-4" />
+      {/* RestockNotice: Set show={true} to display the banner */}
+      {/* <RestockNotice lang={store.lang} className="mb-4" show={false} /> */}
       {(
         <div className="rounded-2xl border border-slate-200 bg-white p-4 overflow-x-auto relative">
           {loading ? (

@@ -301,7 +301,7 @@ export default function CheckoutPage({ store, t }) {
     if (balance !== 0) return false;
     // Validate total digits length
     const digits = s.replace(/\D/g, "");
-    return digits.length >= 7 && digits.length <= 15;
+    return digits.length >= 8 && digits.length <= 12;
   };
   const isValidEmail = (val) => {
     const v = String(val || "").trim();
@@ -413,9 +413,10 @@ export default function CheckoutPage({ store, t }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-3">
-        <RestockNotice id="restock-notice" lang={store.lang} />
-      </div>
+      {/* RestockNotice: Set show={true} to display the banner */}
+      {/* <div className="lg:col-span-3">
+        <RestockNotice id="restock-notice" lang={store.lang} show={false} />
+      </div> */}
       <div className="lg:col-span-2 space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between mb-4">
@@ -462,7 +463,7 @@ export default function CheckoutPage({ store, t }) {
               <div className="sm:col-span-2">
                 <label className="block text-xs text-slate-500 mb-1">
                   {t.name}
-                </label>
+                </label> 
                 <input
                   value={formData.name}
                   onChange={(e) =>
