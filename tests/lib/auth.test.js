@@ -30,7 +30,7 @@ describe('auth lib', () => {
     vi.doMock('../../src/lib/supabaseClient.js', () => ({ getSupabase: () => sb2 }));
     const { signUp: signUp2 } = await import('../../src/lib/auth.js');
     await signUp2({ email: 'a', password: 'b', fullName: 'N' });
-    expect(localStorage.getItem('birdsite.pendingProfilePatch')).toBeTruthy();
+    expect(localStorage.getItem('kuwaitmart.pendingProfilePatch')).toBeTruthy();
   });
 
   it('signIn, signOut, getProfile, updateProfile, getCurrentUser, onAuthStateChange work', async () => {

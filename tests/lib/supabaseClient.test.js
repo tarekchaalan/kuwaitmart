@@ -17,7 +17,7 @@ beforeEach(() => {
   document.cookie = '';
   localStorage.clear();
   // Force module to re-evaluate
-  delete globalThis.__birdsite_supabase_client;
+  delete globalThis.__kuwaitmart_supabase_client;
 });
 
 describe('supabaseClient', async () => {
@@ -27,10 +27,10 @@ describe('supabaseClient', async () => {
     expect(typeof id).toBe('string');
     expect(id.length).toBeGreaterThan(10);
     // cookie should be set
-    expect(document.cookie.includes('birdsite.guest.id=')).toBe(true);
+    expect(document.cookie.includes('kuwaitmart.guest.id=')).toBe(true);
     // token stored in localStorage after getCartToken
     mod.getCartToken();
-    expect(localStorage.getItem('birdsite.cart.token')).toBeTruthy();
+    expect(localStorage.getItem('kuwaitmart.cart.token')).toBeTruthy();
   });
 
   it('getSupabase returns singleton instance', async () => {

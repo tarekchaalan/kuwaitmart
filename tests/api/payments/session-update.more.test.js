@@ -8,7 +8,7 @@ describe('api/payments/session-update (branches)', () => {
 
   it('400 when No session for order', async () => {
     vi.resetModules();
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     saMod.supabaseAdmin.from = () => ({
       select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'o1', mf_session_id: null, order_number: 1, total_kwd: 5 } }) }) }),
     });
@@ -22,11 +22,11 @@ describe('api/payments/session-update (branches)', () => {
   it('GET: responds 303 with Location when gateway issues redirect', async () => {
     vi.resetModules();
     // No-op the payments util side effects to avoid unexpected throws
-    vi.mock('/Users/tarek/Developer/Work/bird-mart/api/_utils/payments.js', () => ({
+    vi.mock('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/payments.js', () => ({
       updatePaymentBySessionOrOrder: async () => ({}),
       addPaymentEventIfSupported: async () => ({}),
     }));
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     saMod.supabaseAdmin.from = () => ({
       select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'o1', mf_session_id: 's1', order_number: 1, total_kwd: 5 } }) }) }),
       update: () => ({ eq: async () => ({}) }),

@@ -4,7 +4,7 @@ import AdminApp from '../../src/admin/AdminApp.jsx';
 import { vi, describe, it, expect } from 'vitest';
 
 // Mock shared supabase client used in AdminApp (define functions inside factory to avoid hoist issues)
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js', () => {
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/supabaseClient.js', () => {
   const onAuthStateChange = () => ({ data: { subscription: { unsubscribe: vi.fn() } } });
   const getSession = vi.fn(async () => ({ data: { session: null } }));
   const signOut = vi.fn(async () => {});

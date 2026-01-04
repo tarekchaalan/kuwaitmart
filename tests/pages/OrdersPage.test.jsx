@@ -4,7 +4,7 @@ import OrdersPage from '../../src/pages/OrdersPage.jsx';
 import { vi, describe, it, expect } from 'vitest';
 
 // Mock Supabase client used by OrdersPage
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js', () => {
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/supabaseClient.js', () => {
   const makeQueryBuilder = () => {
     const builder = {
       select: vi.fn(() => builder),

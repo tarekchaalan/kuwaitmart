@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 describe('api/_utils/payments (branches)', () => {
   it('updatePaymentBySessionOrOrder returns {} when no payment and no order', async () => {
     vi.resetModules();
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     // payments lookup returns nothing; orders lookup returns nothing
     saMod.supabaseAdmin.from = () => ({
       select: () => ({ eq: () => ({ order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }),
@@ -19,7 +19,7 @@ describe('api/_utils/payments (branches)', () => {
 
   it('insertPaymentIfSupported returns { id: null } when insert returns no id', async () => {
     vi.resetModules();
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     saMod.supabaseAdmin.from = () => ({
       insert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
     });

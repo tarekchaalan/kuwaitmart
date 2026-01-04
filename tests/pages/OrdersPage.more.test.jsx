@@ -4,7 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import OrdersPage from '../../src/pages/OrdersPage.jsx';
 
 // Supabase client mock that returns awaitable values at the end of the chain
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js', () => {
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/supabaseClient.js', () => {
   const state = { orders: [], order_items: [], throwOnOrders: false };
 
   const from = vi.fn((table) => {
@@ -40,7 +40,7 @@ vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js', () =>
   return { getSupabase, getCurrentGuestId, __setMockState };
 });
 
-import { __setMockState } from '/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js';
+import { __setMockState } from '/Users/tarek/Developer/Work/kuwaitmart/src/lib/supabaseClient.js';
 
 describe('OrdersPage states', () => {
   const t = { myOrders: 'My orders' };

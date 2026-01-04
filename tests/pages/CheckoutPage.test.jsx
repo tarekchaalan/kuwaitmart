@@ -5,11 +5,11 @@ import CheckoutPage from '../../src/pages/CheckoutPage.jsx';
 // Minimal mocks for auth and supabase client helpers used by CheckoutPage side-effects
 import { vi, describe, it, expect } from 'vitest';
 
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/auth.js', () => ({
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/auth.js', () => ({
   onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
 }));
 
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/cart.js', () => ({
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/cart.js', () => ({
   setQty: vi.fn(),
   removeItem: vi.fn(),
   getCartLines: vi.fn(async () => []),
@@ -17,7 +17,7 @@ vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/cart.js', () => ({
   clearCart: vi.fn(async () => {}),
 }));
 
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/api.js', () => ({
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/api.js', () => ({
   createOrder: vi.fn(),
   validateCoupon: vi.fn(async () => null),
 }));

@@ -3,7 +3,7 @@ import React from 'react';
 import CategoryRow from '../../src/components/CategoryRow.jsx';
 import { vi, describe, it, expect } from 'vitest';
 
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/api.js', () => ({
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/api.js', () => ({
   fetchCategories: vi.fn(async () => ([])),
 }));
 

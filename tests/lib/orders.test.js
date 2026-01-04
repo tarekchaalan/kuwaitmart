@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock supabase client module used by mergeGuestOrdersIntoUser
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/supabaseClient.js', () => {
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/supabaseClient.js', () => {
   const state = {
     guestId: 'guest-123',
     user: { id: 'u1', email: 'user@example.com' },

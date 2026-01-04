@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 describe('Privacy page', () => {
   it('renders heading', () => {
     render(<Privacy />);
-    expect(screen.getByText(/Privacy Policy of BirdMart/i)).toBeInTheDocument();
+    expect(screen.getByText(/Privacy Policy of KuwaitMart/i)).toBeInTheDocument();
   });
 });
 

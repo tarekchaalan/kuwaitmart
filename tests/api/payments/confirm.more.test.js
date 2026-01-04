@@ -9,7 +9,7 @@ describe('api/payments/confirm (branches)', () => {
   it('400 when no session id is available', async () => {
     vi.resetModules();
     // Override the shared supabaseAdmin mock directly
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     saMod.supabaseAdmin.from = () => ({
       select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'o1', status: 'pending', order_number: 1, mf_session_id: null } }) }) }),
     });
@@ -22,7 +22,7 @@ describe('api/payments/confirm (branches)', () => {
 
   it('sets indicator_mismatch when token differs and marks paid on gateway success', async () => {
     vi.resetModules();
-    const saMod = await import('/Users/tarek/Developer/Work/bird-mart/api/_utils/supabaseAdmin.js');
+    const saMod = await import('/Users/tarek/Developer/Work/kuwaitmart/api/_utils/supabaseAdmin.js');
     saMod.supabaseAdmin.from = () => ({
       select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'o1', status: 'pending', order_number: 1, mf_session_id: 's1', payment_ref: 'ABC' } }) }) }),
       update: () => ({ eq: async () => ({}) }),

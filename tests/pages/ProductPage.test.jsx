@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProductPage from '../../src/pages/ProductPage.jsx';
 import { vi, describe, it, expect } from 'vitest';
 
-vi.mock('/Users/tarek/Developer/Work/bird-mart/src/lib/api.js', () => ({
+vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/api.js', () => ({
   fetchProductBySlug: vi.fn(async () => ({
     id: 1,
     slug: 'foo',

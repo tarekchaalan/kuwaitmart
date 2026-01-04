@@ -13,7 +13,7 @@ describe('Primitives', () => {
     const { container: c1 } = render(<Icon name="cart" />);
     expect(c1.querySelector('svg')).toBeTruthy();
     const { container: c2 } = render(<Icon name="logo" />);
-    expect(c2.textContent).toContain('🐦');
+    expect(c2.textContent).toContain('🛒');
   });
 
   it('QtyButton renders and is clickable', () => {
