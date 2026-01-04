@@ -50,15 +50,22 @@ export async function fetchProducts({ page = 1, categoryId = "all", q = "" }) {
 
   const items = (data || []).map((p) => {
     // Determine if product truly has several options (>1)
+    // Options are only active if both the product AND the option are active
+    const productActive = p?.active ?? true;
     let optionsCount = 0;
     let optionNames = [];
     const po = p.product_options;
     if (Array.isArray(po)) {
       const arr = po[0]?.options_names_prices;
-      if (Array.isArray(arr)) { optionsCount = arr.length; optionNames = arr.map((r)=>String(r?.name||'').trim()).filter(Boolean); }
+      if (Array.isArray(arr)) {
+        const activeArr = arr.filter((r) => productActive && r.active !== false);
+        optionsCount = activeArr.length;
+        optionNames = activeArr.map((r)=>String(r?.name||'').trim()).filter(Boolean);
+      }
     } else if (po && Array.isArray(po.options_names_prices)) {
-      optionsCount = po.options_names_prices.length;
-      optionNames = po.options_names_prices.map((r)=>String(r?.name||'').trim()).filter(Boolean);
+      const activeArr = po.options_names_prices.filter((r) => productActive && r.active !== false);
+      optionsCount = activeArr.length;
+      optionNames = activeArr.map((r)=>String(r?.name||'').trim()).filter(Boolean);
     }
 
     return {

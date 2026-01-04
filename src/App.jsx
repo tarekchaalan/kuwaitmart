@@ -108,8 +108,10 @@ function ProductPage({ slug, store, t, navigate }) {
         .slice()
         .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
       setImages(ordered);
+      // Filter options: must be active AND product must be active
+      const productActive = p?.active ?? true;
       const rows = Array.isArray(opt?.options_names_prices)
-        ? opt.options_names_prices
+        ? opt.options_names_prices.filter((r) => productActive && r.active !== false)
         : [];
       setOptionRows(rows);
       setOptionsTitle(opt?.options_title || "Option");
