@@ -1,9 +1,11 @@
 import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
 import { insertPaymentIfSupported, addPaymentEventIfSupported } from "../_utils/payments.js";
+import { roundKWD } from "../_utils/money.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
 const CLICK_DEVELOPER_USER = process.env.CLICK_DEVELOPER_USER;
 const CLICK_KEY = process.env.CLICK_KEY;
+const BASE_URL = process.env.BASE_URL;
 const MIN_ORDER_KWD = Number(process.env.MIN_ORDER_KWD || 0);
 
 export default async function handler(req, res) {
@@ -13,6 +15,7 @@ export default async function handler(req, res) {
     const { orderId } = body;
     if (!orderId) return res.status(400).json({ error: "orderId required" });
     if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
+    if (!BASE_URL) return res.status(500).json({ error: "BASE_URL missing" });
 
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
@@ -31,12 +34,23 @@ export default async function handler(req, res) {
     }
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
+    const requestBody = {
+      order_id: Number(order.order_number || order.id),
+      order_amount: roundKWD(order.total_kwd),
+      customer_name: order.name || order.full_name || "",
+      customer_phone: order.phone || "",
+      customer_email: order.email || "",
+      customer_address: order.address || "",
+      customer_comment: order.notes || "",
+      return_url: `${BASE_URL.replace(/\/$/, "")}/checkout/return?orderId=${encodeURIComponent(order.id)}`,
+    };
     const r = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${CLICK_KEY}`,
       },
+      body: JSON.stringify(requestBody),
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
