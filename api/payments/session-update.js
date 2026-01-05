@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   const isGet = req.method === 'GET';
   if (!isGet && req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
+    console.log("[payment/session-update] Start - Method:", req.method);
     const bodyIn = isGet ? (req.query || {}) : (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}));
     const { orderId, lang = "en", sessionId: sessionIdFromBody } = bodyIn;
     if (!orderId) return res.status(400).json({ error: "orderId required" });
@@ -31,9 +32,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
     }
 
+    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
+    const orderNumber = order.order_number ? Number(order.order_number) : Date.now();
     const body = {
       session_id: sessionId,
-      order_id: Number(order.order_number),
+      order_id: orderNumber,
       order_amount: roundKWD(order.total_kwd),
       return_url: `${BASE_URL.replace(/\/$/, "")}/checkout/return?orderId=${encodeURIComponent(order.id)}&lang=${encodeURIComponent(lang === "ar" ? "ar" : "en")}`,
       customer_name: order.name || order.full_name || "",
@@ -44,6 +47,7 @@ export default async function handler(req, res) {
       customer_civilid: "",
       lang: lang === "ar" ? "ar" : "en",
     };
+    console.log("[payment/session-update] Request body:", body);
 
     // test mode removed; always call gateway
 
@@ -75,6 +79,7 @@ export default async function handler(req, res) {
       }
       if (r.ok) {
         const loc = r.headers.get('location') || r.headers.get('Location') || null;
+        console.log("[payment/session-update] Success response from:", u, "Location header:", loc);
         // Some gateways respond with 200 + empty body but include a Location header
         if (loc) {
           await supabaseAdmin.from("orders").update({ gateway_raw: { location: loc } }).eq("id", orderId);
@@ -82,6 +87,7 @@ export default async function handler(req, res) {
           return res.json({ paymentUrl: loc, redirectUrl: loc, payload: { location: loc } });
         }
         payload = await r.json().catch(() => ({}));
+        console.log("[payment/session-update] Gateway response payload:", JSON.stringify(payload));
         await updatePaymentBySessionOrOrder({ sessionId, orderId, patch: { status: "redirected", gateway_raw: payload }, event: "session_updated", eventPayload: payload });
         break;
       }
@@ -99,15 +105,18 @@ export default async function handler(req, res) {
       .eq("id", orderId);
 
     const paymentUrl = payload?.gatewayResponse?.payment_url || payload?.payment_url || null;
+    console.log("[payment/session-update] Payment URL from gateway:", paymentUrl);
 
     // Build a redirectUrl from env template when paymentUrl is missing
     let redirectUrl = null;
-    const tpl = process.env.CLICK_PAYMENT_URL_TEMPLATE || ""; // e.g. https://clickkw.com/pay/{session_id}
+    // Default template for Click gateway
+    const tpl = process.env.CLICK_PAYMENT_URL_TEMPLATE || `${CLICK_BASE_URL}/pay/{session_id}`;
     if (!paymentUrl && tpl) {
       try {
         redirectUrl = tpl
           .replaceAll('{session_id}', sessionId)
           .replaceAll('{developer_user}', String(CLICK_DEVELOPER_USER || ''));
+        console.log("[payment/session-update] Built redirect from template:", redirectUrl);
       } catch {}
     }
 
@@ -135,7 +144,11 @@ export default async function handler(req, res) {
 
     if (isGet) {
       const to = paymentUrl || redirectUrl || staticPrefillUrl || null;
-      if (!to) return res.status(502).send('missing_redirect');
+      console.log("[payment/session-update] Final redirect URL:", to);
+      if (!to) {
+        console.error("[payment/session-update] No redirect URL found! Payload:", JSON.stringify(payload));
+        return res.status(502).send('missing_redirect');
+      }
       res.statusCode = 303;
       res.setHeader('Location', to);
       return res.end();
