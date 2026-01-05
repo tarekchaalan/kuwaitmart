@@ -18,5 +18,11 @@
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/admin/(.*)", "destination": "/admin.html" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/payments/expire-pendings?minutes=60",
+      "schedule": "0 */2 * * *"
+    }
   ]
 }

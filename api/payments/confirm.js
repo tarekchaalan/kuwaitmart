@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
   try {
     const { orderId, indicator_status, force, failIfPending, message, message_type } = req.query || {};
+    console.log("[payment/confirm] Start - orderId:", orderId, "message:", message, "message_type:", message_type);
     if (!orderId) return res.status(400).json({ error: "orderId required" });
     if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
 
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
       let next = msg === 'success' ? 'paid' : msg;
       if (msg === 'error' || msg === 'wrong' || msg === 'fail' || msg === 'failed' || msg === 'rejected') next = 'failed';
       if (msg === 'cancel' || msg === 'cancelled') next = 'cancelled';
+      console.log("[payment/confirm] Fast-path via message param:", msg, "→ status:", next);
       await supabaseAdmin.from("orders").update({ status: next }).eq("id", orderId);
       if (next === 'paid') { await safeUpdateOrderPaidAt(orderId, true); }
       await updatePaymentBySessionOrOrder({
@@ -52,7 +54,9 @@ export default async function handler(req, res) {
     }
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
-    const postBody = JSON.stringify({ session_id: sessionId, order_id: Number(order.order_number) });
+    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
+    const orderNumber = order.order_number ? Number(order.order_number) : Date.now();
+    const postBody = JSON.stringify({ session_id: sessionId, order_id: orderNumber });
 
     async function fetchStatusOnce() {
       const r = await fetch(url, {
@@ -94,6 +98,7 @@ export default async function handler(req, res) {
     if (!last.isSuccess && !last.isFailed && shouldFailIfPending) {
       next = "failed";
     }
+    console.log("[payment/confirm] Gateway status check result:", last.statusStr, "→ order status:", next);
     const orderPatch = { status: next };
     await supabaseAdmin.from("orders").update(orderPatch).eq("id", orderId);
 
