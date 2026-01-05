@@ -32,11 +32,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
     }
 
-    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
-    const orderNumber = order.order_number ? Number(order.order_number) : Date.now();
+    // Generate a unique order_id for Click gateway (timestamp-based to ensure uniqueness across retries)
+    // Click requires order_id to be unique across ALL transactions, even retries
+    const uniqueOrderId = Date.now();
+    console.log("[payment/session-update] Generated unique order_id for Click:", uniqueOrderId, "Database order_number:", order.order_number);
     const body = {
       session_id: sessionId,
-      order_id: orderNumber,
+      order_id: uniqueOrderId,
       order_amount: roundKWD(order.total_kwd),
       return_url: `${BASE_URL.replace(/\/$/, "")}/checkout/return?orderId=${encodeURIComponent(order.id)}&lang=${encodeURIComponent(lang === "ar" ? "ar" : "en")}`,
       customer_name: order.name || order.full_name || "",
@@ -88,6 +90,14 @@ export default async function handler(req, res) {
         }
         payload = await r.json().catch(() => ({}));
         console.log("[payment/session-update] Gateway response payload:", JSON.stringify(payload));
+
+        // Check if Click returned an error (status: 0 or negative indicates error)
+        if (payload.status !== undefined && payload.status <= 0) {
+          console.error("[payment/session-update] Click gateway error:", payload.message || payload);
+          lastError = { url: u, status: r.status, body: JSON.stringify(payload), clickError: payload.message };
+          continue; // Try next URL
+        }
+
         await updatePaymentBySessionOrOrder({ sessionId, orderId, patch: { status: "redirected", gateway_raw: payload }, event: "session_updated", eventPayload: payload });
         break;
       }
@@ -163,7 +173,7 @@ export default async function handler(req, res) {
         amount: String(roundKWD(order.total_kwd)),
         order_amount: String(roundKWD(order.total_kwd)),
         lang: body.lang,
-        order_id: String(orderNumber),
+        order_id: String(uniqueOrderId),
       }).toString();
       staticPrefillUrl = `${base}?${qs}`;
     }

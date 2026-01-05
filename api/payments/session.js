@@ -57,12 +57,17 @@ export default async function handler(req, res) {
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(
       CLICK_DEVELOPER_USER
     )}`;
-    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
-    const orderNumber = order.order_number
-      ? Number(order.order_number)
-      : Date.now();
+    // Generate a unique order_id for Click gateway (timestamp-based to ensure uniqueness across retries)
+    // Click requires order_id to be unique across ALL transactions, even retries
+    const uniqueOrderId = Date.now();
+    console.log(
+      "[payment/session] Generated unique order_id for Click:",
+      uniqueOrderId,
+      "Database order_number:",
+      order.order_number
+    );
     const requestBody = {
-      order_id: orderNumber,
+      order_id: uniqueOrderId,
       order_amount: roundKWD(order.total_kwd),
       customer_name: order.name || order.full_name || "",
       customer_phone: order.phone || "",

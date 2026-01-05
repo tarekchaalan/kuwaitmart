@@ -54,9 +54,11 @@ export default async function handler(req, res) {
     }
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
-    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
-    const orderNumber = order.order_number ? Number(order.order_number) : Date.now();
-    const postBody = JSON.stringify({ session_id: sessionId, order_id: orderNumber });
+    // For payment status check, we only have the session_id, not the Click order_id
+    // Click should be able to verify payment status from session_id alone
+    // But we still need to send an order_id - use timestamp as placeholder
+    const uniqueOrderId = Date.now();
+    const postBody = JSON.stringify({ session_id: sessionId, order_id: uniqueOrderId });
 
     async function fetchStatusOnce() {
       const r = await fetch(url, {
