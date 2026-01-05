@@ -231,8 +231,6 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyMsg, setVerifyMsg] = useState("");
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -1946,7 +1944,6 @@ function Orders() {
   const [receipt, setReceipt] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
   const [marking, setMarking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState("");
@@ -2104,9 +2101,321 @@ function Orders() {
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="text-sm">
-                    <span className="text-slate-500">Status:</span>{" "}
+                  <div className="text-sm flex items-center gap-2">
+                    <span className="text-slate-500">Status:</span>
                     <StatusPill status={receipt?.status} />
+                    {/* Action buttons - inline like macOS window controls */}
+                    {(() => {
+                      const methodRaw = String(
+                        receipt?.payment_method || ""
+                      ).toLowerCase();
+                      const isCOD =
+                        methodRaw === "cod" ||
+                        methodRaw === "cash_on_delivery" ||
+                        methodRaw === "cash";
+                      const statusLower = String(
+                        receipt?.status || ""
+                      ).toLowerCase();
+
+                      // For FAILED orders
+                      if (statusLower === "failed") {
+                        return (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "paid",
+                                      paid_at: new Date().toISOString(),
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order marked as paid");
+                                } catch (e) {
+                                  console.error("mark paid error", e);
+                                  alert("Failed to mark as paid");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60"
+                              title="Mark as Paid"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "pending",
+                                      paid_at: null,
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg(
+                                    "Order status changed to pending"
+                                  );
+                                } catch (e) {
+                                  console.error("mark pending error", e);
+                                  alert("Failed to mark as pending");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
+                              title="Mark as Pending"
+                            />
+                          </>
+                        );
+                      }
+
+                      // For PENDING COD orders
+                      if (statusLower === "pending" && isCOD) {
+                        return (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "paid",
+                                      paid_at: new Date().toISOString(),
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Payment confirmed");
+                                } catch (e) {
+                                  console.error("mark paid error", e);
+                                  alert("Failed to mark as paid");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60"
+                              title="Mark as Paid"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "failed",
+                                      paid_at: null,
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order cancelled");
+                                } catch (e) {
+                                  console.error("mark failed error", e);
+                                  alert("Failed to cancel order");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-rose-500 hover:bg-rose-600 disabled:opacity-60"
+                              title="Mark as Failed"
+                            />
+                          </>
+                        );
+                      }
+
+                      // For PENDING KNET orders
+                      if (statusLower === "pending" && !isCOD) {
+                        return (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "paid",
+                                      paid_at: new Date().toISOString(),
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order marked as paid");
+                                } catch (e) {
+                                  console.error("mark paid error", e);
+                                  alert("Failed to mark as paid");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60"
+                              title="Mark as Paid"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({ status: "failed", paid_at: null })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order cancelled");
+                                } catch (e) {
+                                  console.error("mark failed error", e);
+                                  alert("Failed to cancel order");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-rose-500 hover:bg-rose-600 disabled:opacity-60"
+                              title="Mark as Failed"
+                            />
+                          </>
+                        );
+                      }
+
+                      // For PAID orders
+                      if (statusLower === "paid") {
+                        return (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "pending",
+                                      paid_at: null,
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg(
+                                    "Order status changed to pending"
+                                  );
+                                } catch (e) {
+                                  console.error("mark pending error", e);
+                                  alert("Failed to mark as pending");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
+                              title="Mark as Pending"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      status: "failed",
+                                      paid_at: null,
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order cancelled");
+                                } catch (e) {
+                                  console.error("mark failed error", e);
+                                  alert("Failed to cancel order");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-rose-500 hover:bg-rose-600 disabled:opacity-60"
+                              title="Mark as Failed"
+                            />
+                          </>
+                        );
+                      }
+
+                      return null;
+                    })()}
                   </div>
                   <div className="text-sm">
                     <span className="text-slate-500">Created:</span>{" "}
@@ -2118,6 +2427,79 @@ function Orders() {
                       <PaymentBadge row={receipt} />
                     </span>
                   </div>
+                  {(() => {
+                    const methodRaw = String(
+                      receipt?.payment_method || ""
+                    ).toLowerCase();
+                    const isCOD =
+                      methodRaw === "cod" ||
+                      methodRaw === "cash_on_delivery" ||
+                      methodRaw === "cash";
+                    const isKNET =
+                      methodRaw === "card" ||
+                      methodRaw === "credit" ||
+                      methodRaw === "credit_card";
+                    const statusLower = String(
+                      receipt?.status || ""
+                    ).toLowerCase();
+                    const showDelivery =
+                      (statusLower === "paid" && isKNET) ||
+                      (statusLower === "pending" && isCOD);
+
+                    if (!showDelivery) return null;
+
+                    return (
+                      <div className="text-sm flex items-center gap-2">
+                        <span className="text-slate-500">Delivery Status:</span>
+                        {receipt?.delivered_at ? (
+                          <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Delivered{" "}
+                            {new Date(
+                              receipt.delivered_at
+                            ).toLocaleDateString()}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border-amber-200">
+                              Awaiting Delivery
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      delivered_at: new Date().toISOString(),
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Order marked as delivered");
+                                } catch (e) {
+                                  console.error("mark delivered error", e);
+                                  alert("Failed to mark as delivered");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-60"
+                              title="Mark as Delivered"
+                            />
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="text-sm">
                     <span className="text-slate-500">Name:</span>{" "}
                     {receipt?.name || "—"}
@@ -2230,159 +2612,10 @@ function Orders() {
                         setDeleting(false);
                       }
                     }}
-                    disabled={verifying || marking || deleting}
+                    disabled={marking || deleting}
                     className="rounded-lg border px-3 py-1.5 text-sm hover:bg-rose-50 disabled:opacity-60 text-rose-700 border-rose-300"
                   >
-                    {deleting ? "Working…" : "Delete order"}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!receipt?.id) return;
-                      setVerifyMsg("");
-                      setMarking(true);
-                      try {
-                        const { error } = await supabase
-                          .from("orders")
-                          .update({ status: "failed", paid_at: null })
-                          .eq("id", receipt.id);
-                        if (error) throw error;
-                        await load();
-                        const { data: updated } = await supabase
-                          .from("orders")
-                          .select("*")
-                          .eq("id", receipt.id)
-                          .maybeSingle();
-                        setReceipt(updated || receipt);
-                        setVerifyMsg("Order marked: FAILED");
-                      } catch (e) {
-                        console.error("mark failed error", e);
-                        alert("Failed to mark as failed");
-                      } finally {
-                        setMarking(false);
-                      }
-                    }}
-                    disabled={verifying || marking || deleting}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-rose-50 disabled:opacity-60 text-rose-700 border-rose-300"
-                  >
-                    {marking ? "Working…" : "Mark Failed"}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!receipt?.id) return;
-                      setVerifyMsg("");
-                      setMarking(true);
-                      try {
-                        const { error } = await supabase
-                          .from("orders")
-                          .update({ status: "pending", paid_at: null })
-                          .eq("id", receipt.id);
-                        if (error) throw error;
-                        await load();
-                        const { data: updated } = await supabase
-                          .from("orders")
-                          .select("*")
-                          .eq("id", receipt.id)
-                          .maybeSingle();
-                        setReceipt(updated || receipt);
-                        setVerifyMsg("Order marked: PENDING");
-                      } catch (e) {
-                        console.error("mark pending error", e);
-                        alert("Failed to mark as pending");
-                      } finally {
-                        setMarking(false);
-                      }
-                    }}
-                    disabled={verifying || marking || deleting}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-amber-50 disabled:opacity-60 text-amber-700 border-amber-300"
-                  >
-                    {marking ? "Working…" : "Mark Pending"}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!receipt?.id) return;
-                      setVerifyMsg("");
-                      setMarking(true);
-                      try {
-                        const { error } = await supabase
-                          .from("orders")
-                          .update({
-                            status: "paid",
-                            paid_at: new Date().toISOString(),
-                          })
-                          .eq("id", receipt.id);
-                        if (error) throw error;
-                        await load();
-                        const { data: updated } = await supabase
-                          .from("orders")
-                          .select("*")
-                          .eq("id", receipt.id)
-                          .maybeSingle();
-                        setReceipt(updated || receipt);
-                        setVerifyMsg("Order marked: PAID");
-                      } catch (e) {
-                        console.error("mark paid error", e);
-                        alert("Failed to mark as paid");
-                      } finally {
-                        setMarking(false);
-                      }
-                    }}
-                    disabled={verifying || marking || deleting}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-emerald-50 disabled:opacity-60 text-emerald-700 border-emerald-300"
-                  >
-                    {marking ? "Working…" : "Mark Paid"}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!receipt?.id) return;
-                      setVerifyMsg("");
-                      setVerifying(true);
-                      try {
-                        const params = {
-                          orderId: receipt.id,
-                          force: "1",
-                          wait: "30",
-                        };
-                        if (receipt?.mf_session_id)
-                          params.sessionId = receipt.mf_session_id;
-                        const qs = new URLSearchParams(params).toString();
-                        const res = await fetch(`/api/payments/confirm?${qs}`);
-                        const j = await res.json().catch(() => ({}));
-                        await load();
-                        const { data: updated } = await supabase
-                          .from("orders")
-                          .select("*")
-                          .eq("id", receipt.id)
-                          .maybeSingle();
-                        setReceipt(updated || receipt);
-                        if (j?.status === "paid")
-                          setVerifyMsg("Payment verified: PAID");
-                        else if (j?.status === "failed")
-                          setVerifyMsg("Payment verified: FAILED");
-                        else if (j?.error)
-                          setVerifyMsg(`Verification error: ${j.error}`);
-                        else {
-                          const gw =
-                            j?.gateway?.Status ||
-                            j?.gateway?.status ||
-                            j?.gateway?.Response ||
-                            j?.gateway?.response ||
-                            "";
-                          const st = j?.status
-                            ? String(j.status).toUpperCase()
-                            : "UNKNOWN";
-                          const extra = gw ? ` (gateway: ${gw})` : "";
-                          setVerifyMsg(`Payment verified: ${st}${extra}`);
-                        }
-                      } catch (e) {
-                        console.error("verify error", e);
-                      } finally {
-                        setVerifying(false);
-                      }
-                    }}
-                    disabled={verifying || marking || deleting}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {verifying ? "Verifying…" : "Verify Now"}
+                    {deleting ? "Deleting…" : "Delete"}
                   </button>
                 </div>
                 {verifyMsg && (
