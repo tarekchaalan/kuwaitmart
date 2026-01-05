@@ -110,11 +110,13 @@ export default async function handler(req, res) {
         .json({ error: "Failed to create session", details: payload });
     }
 
+    // Store both the session_id and the Click order_id we used
     await supabaseAdmin
       .from("orders")
       .update({
         mf_session_id: String(ses.session_id),
         payment_ref: String(ses.indicator_status),
+        order_number: uniqueOrderId, // Store the Click order_id for reuse
       })
       .eq("id", orderId);
 

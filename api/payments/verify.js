@@ -26,8 +26,8 @@ export default async function handler(req, res) {
     if (!sessionId) return res.status(400).json({ error: "no_session_id_for_order" });
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
-    // For payment status check, use timestamp as order_id (Click should verify by session_id)
-    const uniqueOrderId = Date.now();
+    // For payment status check, reuse the Click order_id from session creation (stored in order_number)
+    const uniqueOrderId = order.order_number || Date.now();
     const postBody = JSON.stringify({ session_id: sessionId, order_id: uniqueOrderId });
     const r = await fetch(url, {
       method: "POST",

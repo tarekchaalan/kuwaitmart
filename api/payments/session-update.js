@@ -32,10 +32,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
     }
 
-    // Generate a unique order_id for Click gateway (timestamp-based to ensure uniqueness across retries)
-    // Click requires order_id to be unique across ALL transactions, even retries
-    const uniqueOrderId = Date.now();
-    console.log("[payment/session-update] Generated unique order_id for Click:", uniqueOrderId, "Database order_number:", order.order_number);
+    // IMPORTANT: Reuse the same order_id that was used in session creation
+    // The order_number field stores the Click order_id from session creation
+    // If missing, generate a new one (shouldn't happen in normal flow)
+    const uniqueOrderId = order.order_number || Date.now();
+    console.log("[payment/session-update] Using order_id for Click:", uniqueOrderId, "From DB order_number:", order.order_number);
     const body = {
       session_id: sessionId,
       order_id: uniqueOrderId,
