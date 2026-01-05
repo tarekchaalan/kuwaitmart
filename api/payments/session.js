@@ -89,6 +89,8 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${CLICK_KEY}`,
       },
       body: JSON.stringify(requestBody),
+      // Add timeout to prevent hanging
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     });
     console.log("[payment/session] Click API response:", {
       status: r.status,

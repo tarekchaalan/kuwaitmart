@@ -63,15 +63,20 @@ export default async function handler(req, res) {
     let payload = null;
     let lastError = null;
     for (const u of urls) {
-      const r = await fetch(u, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${CLICK_KEY}`,
-        },
-        body: JSON.stringify(body),
-        redirect: 'manual',
-      });
+      try {
+        console.log("[payment/session-update] Calling Click API:", u);
+        const r = await fetch(u, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${CLICK_KEY}`,
+          },
+          body: JSON.stringify(body),
+          redirect: 'manual',
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(10000), // 10 second timeout
+        });
+        console.log("[payment/session-update] Click API responded:", u, "Status:", r.status);
       // If the gateway responds with a redirect, capture Location without following
       const loc = r.headers.get('location') || r.headers.get('Location') || null;
       if (loc && r.status >= 300 && r.status < 400) {
@@ -102,8 +107,13 @@ export default async function handler(req, res) {
         await updatePaymentBySessionOrOrder({ sessionId, orderId, patch: { status: "redirected", gateway_raw: payload }, event: "session_updated", eventPayload: payload });
         break;
       }
-      const txt = await r.text().catch(() => "");
-      lastError = { url: u, status: r.status, body: txt };
+        const txt = await r.text().catch(() => "");
+        console.log("[payment/session-update] Click API error response:", u, "Status:", r.status, "Body:", txt);
+        lastError = { url: u, status: r.status, body: txt };
+      } catch (fetchError) {
+        console.error("[payment/session-update] Fetch error for:", u, fetchError);
+        lastError = { url: u, error: fetchError.message || String(fetchError), type: fetchError.name };
+      }
     }
     if (!payload) {
       if (isGet) return res.status(502).send('click_update_session_failed');
