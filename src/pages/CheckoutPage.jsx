@@ -858,6 +858,13 @@ export default function CheckoutPage({ store, t }) {
                             ses.min.toFixed ? ses.min.toFixed(3) : ses.min
                           } KWD`
                         );
+                        // Delete the order since payment session failed
+                        try {
+                          await supabase.from("order_items").delete().eq("order_id", order.id);
+                          await supabase.from("orders").delete().eq("id", order.id);
+                        } catch (delErr) {
+                          console.error("Failed to cleanup order:", delErr);
+                        }
                         return;
                       }
                       throw new Error(ses?.error || "session_failed");
@@ -870,6 +877,13 @@ export default function CheckoutPage({ store, t }) {
                     window.location.assign(`/api/payments/session-update?${q}`);
                   } catch (gwErr) {
                     console.error("Gateway error", gwErr);
+                    // Delete the order and its items since payment session failed
+                    try {
+                      await supabase.from("order_items").delete().eq("order_id", order.id);
+                      await supabase.from("orders").delete().eq("id", order.id);
+                    } catch (delErr) {
+                      console.error("Failed to cleanup order:", delErr);
+                    }
                     alert("Payment gateway error, please try again.");
                   }
                 }
