@@ -35,7 +35,12 @@ export default async function handler(req, res) {
     // IMPORTANT: Reuse the same order_id that was used in session creation
     // The order_number field stores the Click order_id from session creation
     // If missing, generate a new one (shouldn't happen in normal flow)
-    const uniqueOrderId = order.order_number || Date.now();
+    // Ensure it stays within INT range for Click API
+    let uniqueOrderId = order.order_number;
+    if (!uniqueOrderId) {
+      const timestampPart = Date.now() % 1000000000;
+      uniqueOrderId = timestampPart + (Number(order.id) || 0);
+    }
     console.log("[payment/session-update] Using order_id for Click:", uniqueOrderId, "From DB order_number:", order.order_number);
     const body = {
       session_id: sessionId,

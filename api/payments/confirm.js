@@ -55,8 +55,12 @@ export default async function handler(req, res) {
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
     // For payment status check, reuse the Click order_id from session creation (stored in order_number)
-    // If missing, use timestamp as fallback
-    const uniqueOrderId = order.order_number || Date.now();
+    // Ensure it stays within INT range for Click API
+    let uniqueOrderId = order.order_number;
+    if (!uniqueOrderId) {
+      const timestampPart = Date.now() % 1000000000;
+      uniqueOrderId = timestampPart + (Number(order.id) || 0);
+    }
     const postBody = JSON.stringify({ session_id: sessionId, order_id: uniqueOrderId });
 
     async function fetchStatusOnce() {

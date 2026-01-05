@@ -57,9 +57,12 @@ export default async function handler(req, res) {
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(
       CLICK_DEVELOPER_USER
     )}`;
-    // Generate a unique order_id for Click gateway (timestamp-based to ensure uniqueness across retries)
-    // Click requires order_id to be unique across ALL transactions, even retries
-    const uniqueOrderId = Date.now();
+    // Generate a unique order_id for Click gateway
+    // Click API requires order_id to be within INT range (max ~2 billion)
+    // Use timestamp modulo to keep it small but unique: last 9 digits of timestamp + order.id offset
+    // This ensures uniqueness across retries while staying within INT limits
+    const timestampPart = Date.now() % 1000000000; // Last 9 digits (max 999,999,999)
+    const uniqueOrderId = timestampPart + (Number(order.id) || 0); // Add order ID for extra uniqueness
     console.log(
       "[payment/session] Generated unique order_id for Click:",
       uniqueOrderId,
