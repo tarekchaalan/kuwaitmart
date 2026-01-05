@@ -26,7 +26,9 @@ export default async function handler(req, res) {
     if (!sessionId) return res.status(400).json({ error: "no_session_id_for_order" });
 
     const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
-    const postBody = JSON.stringify({ session_id: sessionId, order_id: Number(order.order_number) });
+    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
+    const orderNumber = order.order_number ? Number(order.order_number) : Date.now();
+    const postBody = JSON.stringify({ session_id: sessionId, order_id: orderNumber });
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${CLICK_KEY}` },

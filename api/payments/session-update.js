@@ -104,13 +104,27 @@ export default async function handler(req, res) {
       .update({ gateway_raw: payload })
       .eq("id", orderId);
 
-    const paymentUrl = payload?.gatewayResponse?.payment_url || payload?.payment_url || null;
+    // Try multiple possible field names for payment URL
+    const paymentUrl =
+      payload?.gatewayResponse?.payment_url ||
+      payload?.gatewayResponse?.paymentUrl ||
+      payload?.gatewayResponse?.redirect_url ||
+      payload?.gatewayResponse?.redirectUrl ||
+      payload?.gatewayResponse?.url ||
+      payload?.payment_url ||
+      payload?.paymentUrl ||
+      payload?.redirect_url ||
+      payload?.redirectUrl ||
+      payload?.url ||
+      null;
     console.log("[payment/session-update] Payment URL from gateway:", paymentUrl);
+    console.log("[payment/session-update] Full gateway payload:", JSON.stringify(payload, null, 2));
+    console.log("[payment/session-update] Gateway response keys:", Object.keys(payload || {}), "gatewayResponse keys:", Object.keys(payload?.gatewayResponse || {}));
 
     // Build a redirectUrl from env template when paymentUrl is missing
     let redirectUrl = null;
-    // Default template for Click gateway
-    const tpl = process.env.CLICK_PAYMENT_URL_TEMPLATE || `${CLICK_BASE_URL}/pay/{session_id}`;
+    // Common Click gateway URL patterns - try multiple possibilities
+    const tpl = process.env.CLICK_PAYMENT_URL_TEMPLATE || `${CLICK_BASE_URL}/payment/{session_id}`;
     if (!paymentUrl && tpl) {
       try {
         redirectUrl = tpl
@@ -118,6 +132,18 @@ export default async function handler(req, res) {
           .replaceAll('{developer_user}', String(CLICK_DEVELOPER_USER || ''));
         console.log("[payment/session-update] Built redirect from template:", redirectUrl);
       } catch {}
+    }
+
+    // If template also fails, try common Click patterns
+    if (!paymentUrl && !redirectUrl) {
+      const commonPatterns = [
+        `${CLICK_BASE_URL}/payment/${sessionId}`,
+        `${CLICK_BASE_URL}/checkout/${sessionId}`,
+        `${CLICK_BASE_URL}/gateway/payment/${sessionId}`,
+      ];
+      console.log("[payment/session-update] Trying common patterns:", commonPatterns);
+      // Use first pattern as fallback
+      redirectUrl = commonPatterns[0];
     }
 
     // Static store pay page fallback (prefill via query). Set CLICK_STATIC_PAY_URL
@@ -137,7 +163,7 @@ export default async function handler(req, res) {
         amount: String(roundKWD(order.total_kwd)),
         order_amount: String(roundKWD(order.total_kwd)),
         lang: body.lang,
-        order_id: String(order.order_number),
+        order_id: String(orderNumber),
       }).toString();
       staticPrefillUrl = `${base}?${qs}`;
     }

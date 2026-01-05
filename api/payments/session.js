@@ -69,6 +69,8 @@ export default async function handler(req, res) {
       customer_email: order.email || "",
       customer_address: order.address || "",
       customer_comment: order.notes || "",
+      customer_civilid: "",
+      lang: "en",
       return_url: `${BASE_URL.replace(
         /\/$/,
         ""
@@ -89,13 +91,11 @@ export default async function handler(req, res) {
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
-      return res
-        .status(502)
-        .json({
-          error: "click_create_session_failed",
-          status: r.status,
-          body: txt,
-        });
+      return res.status(502).json({
+        error: "click_create_session_failed",
+        status: r.status,
+        body: txt,
+      });
     }
     const payload = await r.json().catch(() => ({}));
     const ses = payload?.gatewayResponse || {};
@@ -147,16 +147,14 @@ export default async function handler(req, res) {
     console.error("/api/payments/session error:", e);
     console.error("Error details:", { message: e?.message, stack: e?.stack });
     const dev = process.env.NODE_ENV !== "production";
-    return res
-      .status(500)
-      .json(
-        dev
-          ? {
-              error: "internal_error",
-              message: String(e?.message || e),
-              stack: e?.stack,
-            }
-          : { error: "internal_error" }
-      );
+    return res.status(500).json(
+      dev
+        ? {
+            error: "internal_error",
+            message: String(e?.message || e),
+            stack: e?.stack,
+          }
+        : { error: "internal_error" }
+    );
   }
 }
