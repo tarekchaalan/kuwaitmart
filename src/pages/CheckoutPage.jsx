@@ -463,7 +463,7 @@ export default function CheckoutPage({ store, t }) {
               <div className="sm:col-span-2">
                 <label className="block text-xs text-slate-500 mb-1">
                   {t.name}
-                </label> 
+                </label>
                 <input
                   value={formData.name}
                   onChange={(e) =>
@@ -672,7 +672,7 @@ export default function CheckoutPage({ store, t }) {
                   checked={paymentMethod === "card"}
                   onChange={() => setPaymentMethod("card")}
                 />
-                <span>Credit Card</span>
+                <span>KNET</span>
               </label>
               <label className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer">
                 <input

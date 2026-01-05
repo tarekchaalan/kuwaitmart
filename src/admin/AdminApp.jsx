@@ -2432,7 +2432,7 @@ function PaymentBadge({ row }) {
     method === "cod" || method === "cash_on_delivery" || method === "cash";
   const isCard =
     method === "card" || method === "credit" || method === "credit_card";
-  const label = isCOD ? "Cash on Delivery" : "Credit Card";
+  const label = isCOD ? "Cash on Delivery" : "KNET";
   return (
     <span className="inline-flex items-center gap-1 text-xs">
       {isCOD ? (

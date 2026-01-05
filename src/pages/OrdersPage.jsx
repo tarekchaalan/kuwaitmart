@@ -73,7 +73,7 @@ export default function OrdersPage({ store, t }) {
     }
     const isCOD = method === 'cod' || method === 'cash_on_delivery' || method === 'cash';
     const isCard = method === 'card' || method === 'credit' || method === 'credit_card';
-    const label = isCOD ? 'Cash on Delivery' : (isCard ? 'Credit Card' : '—');
+    const label = isCOD ? 'Cash on Delivery' : (isCard ? 'KNET' : '—');
     return (
       <span className="inline-flex items-center gap-1 text-xs">
         {isCOD ? <IoIosCash className="text-emerald-600 text-xl" /> : <FaCreditCard className="text-sky-600 text-xl" />}

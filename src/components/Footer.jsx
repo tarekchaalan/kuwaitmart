@@ -1,7 +1,6 @@
 import React from "react";
 import clickLogo from "../assets/click.png";
 import knetLogo from "../assets/knet.png";
-import cardLogo from "../assets/creditcard.png";
 
 export default function Footer() {
   return (
@@ -25,7 +24,6 @@ export default function Footer() {
           <div className="font-semibold text-slate-800 mb-2">Payments</div>
           <div className="flex items-center gap-3">
             <img src={clickLogo} alt="CLICK" className="h-8 w-auto" />
-            <img src={cardLogo} alt="Credit Card" className="h-8 w-auto" />
             <img src={knetLogo} alt="KNET" className="h-8 w-auto" />
           </div>
         </div>
