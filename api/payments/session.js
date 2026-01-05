@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
-import { insertPaymentIfSupported, addPaymentEventIfSupported } from "../_utils/payments.js";
+import {
+  insertPaymentIfSupported,
+  addPaymentEventIfSupported,
+} from "../_utils/payments.js";
 import { roundKWD } from "../_utils/money.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
@@ -9,12 +12,23 @@ const BASE_URL = process.env.BASE_URL;
 const MIN_ORDER_KWD = Number(process.env.MIN_ORDER_KWD || 0);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    console.log("[payment/session] Start - Environment check:", {
+      hasClickUser: !!CLICK_DEVELOPER_USER,
+      hasClickKey: !!CLICK_KEY,
+      hasBaseUrl: !!BASE_URL,
+      baseUrl: BASE_URL,
+    });
+    const body =
+      typeof req.body === "string"
+        ? JSON.parse(req.body || "{}")
+        : req.body || {};
     const { orderId } = body;
     if (!orderId) return res.status(400).json({ error: "orderId required" });
-    if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
+    if (!CLICK_DEVELOPER_USER || !CLICK_KEY)
+      return res.status(500).json({ error: "Gateway env missing" });
     if (!BASE_URL) return res.status(500).json({ error: "BASE_URL missing" });
 
     const { data: order, error: oErr } = await supabaseAdmin
@@ -24,26 +38,43 @@ export default async function handler(req, res) {
       .single();
     if (oErr) throw oErr;
     if (!order) return res.status(404).json({ error: "Order not found" });
-    if (String(order.status) === "paid") return res.status(400).json({ error: "Order already paid" });
+    if (String(order.status) === "paid")
+      return res.status(400).json({ error: "Order already paid" });
     if (order.mf_session_id) {
-      return res.json({ sessionId: String(order.mf_session_id), indicator: String(order.payment_ref || "") });
+      return res.json({
+        sessionId: String(order.mf_session_id),
+        indicator: String(order.payment_ref || ""),
+      });
     }
-    if (!Number(order.total_kwd) || Number(order.total_kwd) <= 0) return res.status(400).json({ error: "Invalid amount" });
+    if (!Number(order.total_kwd) || Number(order.total_kwd) <= 0)
+      return res.status(400).json({ error: "Invalid amount" });
     if (MIN_ORDER_KWD > 0 && Number(order.total_kwd) < MIN_ORDER_KWD) {
-      return res.status(400).json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
+      return res
+        .status(400)
+        .json({ error: "amount_below_minimum", min: MIN_ORDER_KWD });
     }
 
-    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
+    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/${encodeURIComponent(
+      CLICK_DEVELOPER_USER
+    )}`;
+    // Ensure order_id is a valid number (fallback to timestamp if order_number is missing)
+    const orderNumber = order.order_number
+      ? Number(order.order_number)
+      : Date.now();
     const requestBody = {
-      order_id: Number(order.order_number || order.id),
+      order_id: orderNumber,
       order_amount: roundKWD(order.total_kwd),
       customer_name: order.name || order.full_name || "",
       customer_phone: order.phone || "",
       customer_email: order.email || "",
       customer_address: order.address || "",
       customer_comment: order.notes || "",
-      return_url: `${BASE_URL.replace(/\/$/, "")}/checkout/return?orderId=${encodeURIComponent(order.id)}`,
+      return_url: `${BASE_URL.replace(
+        /\/$/,
+        ""
+      )}/checkout/return?orderId=${encodeURIComponent(order.id)}`,
     };
+    console.log("[payment/session] Calling Click API:", { url, requestBody });
     const r = await fetch(url, {
       method: "POST",
       headers: {
@@ -52,14 +83,26 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(requestBody),
     });
+    console.log("[payment/session] Click API response:", {
+      status: r.status,
+      ok: r.ok,
+    });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
-      return res.status(502).json({ error: "click_create_session_failed", status: r.status, body: txt });
+      return res
+        .status(502)
+        .json({
+          error: "click_create_session_failed",
+          status: r.status,
+          body: txt,
+        });
     }
     const payload = await r.json().catch(() => ({}));
     const ses = payload?.gatewayResponse || {};
     if (!ses.session_id || !ses.indicator_status) {
-      return res.status(400).json({ error: "Failed to create session", details: payload });
+      return res
+        .status(400)
+        .json({ error: "Failed to create session", details: payload });
     }
 
     await supabaseAdmin
@@ -78,21 +121,42 @@ export default async function handler(req, res) {
       sessionId: String(ses.session_id),
       indicatorToken: String(ses.indicator_status),
       status: "initiated",
-      method: 'CARD',
+      method: "CARD",
       gatewayRaw: payload || null,
     });
     if (ins?.id) {
-      await addPaymentEventIfSupported({ paymentId: ins.id, event: "session_created", payload: payload || null });
+      await addPaymentEventIfSupported({
+        paymentId: ins.id,
+        event: "session_created",
+        payload: payload || null,
+      });
     } else if (ins?.error) {
-      try { console.warn("payments.insert failed", String(ins.error?.message || ins.error)); } catch {}
+      try {
+        console.warn(
+          "payments.insert failed",
+          String(ins.error?.message || ins.error)
+        );
+      } catch {}
     }
 
-    return res.json({ sessionId: String(ses.session_id), indicator: String(ses.indicator_status) });
+    return res.json({
+      sessionId: String(ses.session_id),
+      indicator: String(ses.indicator_status),
+    });
   } catch (e) {
-    console.error("/api/payments/session error", e);
-    const dev = process.env.NODE_ENV !== 'production';
-    return res.status(500).json(dev ? { error: "internal_error", message: String(e?.message||e), stack: e?.stack } : { error: "internal_error" });
+    console.error("/api/payments/session error:", e);
+    console.error("Error details:", { message: e?.message, stack: e?.stack });
+    const dev = process.env.NODE_ENV !== "production";
+    return res
+      .status(500)
+      .json(
+        dev
+          ? {
+              error: "internal_error",
+              message: String(e?.message || e),
+              stack: e?.stack,
+            }
+          : { error: "internal_error" }
+      );
   }
 }
-
-
