@@ -1802,8 +1802,8 @@ function Coupons() {
       code: form.code.trim().toUpperCase(),
       pct_off: toNumNull(form.pct_off),
       amount_off_kwd: toNumNull(form.amount_off_kwd),
-      starts_at: emptyToNull(form.starts_at),
-      ends_at: emptyToNull(form.ends_at),
+      starts_at: form.starts_at ? convertKuwaitToUTC(form.starts_at) : null,
+      ends_at: form.ends_at ? convertKuwaitToUTC(form.ends_at) : null,
       usage_limit: emptyToNull(form.usage_limit),
       active: !!form.active,
     };
@@ -2817,6 +2817,11 @@ function safeJSON(v) {
 function fmtDT(v) {
   if (!v) return "—";
   return new Date(v).toLocaleString("en-US", { timeZone: "Asia/Kuwait" });
+}
+function convertKuwaitToUTC(datetimeLocal) {
+  const kuwaitDate = new Date(datetimeLocal);
+  const utcDate = new Date(kuwaitDate.getTime() - 3 * 60 * 60 * 1000);
+  return utcDate.toISOString();
 }
 
 // Convert an image File to WebP Blob using canvas
