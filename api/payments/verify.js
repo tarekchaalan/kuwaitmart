@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
-import { updatePaymentBySessionOrOrder, safeUpdateOrderPaidAt } from "../_utils/payments.js";
+import {
+  updatePaymentBySessionOrOrder,
+  safeUpdateOrderPaidAt,
+} from "../_utils/payments.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
 const CLICK_DEVELOPER_USER = process.env.CLICK_DEVELOPER_USER;
@@ -7,12 +10,19 @@ const CLICK_KEY = process.env.CLICK_KEY;
 
 export default async function handler(req, res) {
   const method = req.method || "GET";
-  if (method !== "GET" && method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (method !== "GET" && method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
   try {
-    const body = method === 'GET' ? (req.query || {}) : (typeof req.body === 'string' ? JSON.parse(req.body||'{}') : (req.body||{}));
+    const body =
+      method === "GET"
+        ? req.query || {}
+        : typeof req.body === "string"
+        ? JSON.parse(req.body || "{}")
+        : req.body || {};
     const { orderId, sessionId: sessionIdFromBody } = body;
     if (!orderId) return res.status(400).json({ error: "orderId required" });
-    if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
+    if (!CLICK_DEVELOPER_USER || !CLICK_KEY)
+      return res.status(500).json({ error: "Gateway env missing" });
 
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
@@ -23,9 +33,12 @@ export default async function handler(req, res) {
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     const sessionId = String(sessionIdFromBody || order.mf_session_id || "");
-    if (!sessionId) return res.status(400).json({ error: "no_session_id_for_order" });
+    if (!sessionId)
+      return res.status(400).json({ error: "no_session_id_for_order" });
 
-    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
+    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(
+      CLICK_DEVELOPER_USER
+    )}`;
     // For payment status check, reuse the Click order_id from session creation (stored in order_number)
     // Ensure it stays within INT range for Click API
     let uniqueOrderId = order.order_number;
@@ -33,64 +46,106 @@ export default async function handler(req, res) {
       const timestampPart = Date.now() % 1000000000;
       uniqueOrderId = timestampPart + (Number(order.id) || 0);
     }
-    const postBody = JSON.stringify({ session_id: sessionId, order_id: uniqueOrderId });
+    const postBody = JSON.stringify({
+      session_id: sessionId,
+      order_id: uniqueOrderId,
+    });
     const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${CLICK_KEY}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CLICK_KEY}`,
+      },
       body: postBody,
     });
     if (!r.ok) {
-      const txt = await r.text().catch(()=>"");
-      return res.status(502).json({ error: "paymentstatus_http_error", status: r.status, body: txt });
+      const txt = await r.text().catch(() => "");
+      return res
+        .status(502)
+        .json({
+          error: "paymentstatus_http_error",
+          status: r.status,
+          body: txt,
+        });
     }
-    const payload = await r.json().catch(()=>({}));
-    const statusStr = String(payload?.Status || payload?.status || payload?.Response || payload?.response || "").toLowerCase();
-    const isSuccess = statusStr === 'success';
-    const isFailed = statusStr === 'failed' || statusStr === 'fail' || statusStr === 'rejected';
+    const payload = await r.json().catch(() => ({}));
+    const statusStr = String(
+      payload?.Status ||
+        payload?.status ||
+        payload?.Response ||
+        payload?.response ||
+        ""
+    ).toLowerCase();
+    const isSuccess = statusStr === "success";
+    const isFailed =
+      statusStr === "failed" ||
+      statusStr === "fail" ||
+      statusStr === "rejected";
 
-    const next = isSuccess ? 'paid' : (isFailed ? 'failed' : order.status);
-    await supabaseAdmin.from('orders').update({ status: next }).eq('id', orderId);
-    const txid = payload?.transaction_id || payload?.TransactionId || payload?.TxnId || null;
+    const next = isSuccess ? "paid" : isFailed ? "failed" : order.status;
+    await supabaseAdmin
+      .from("orders")
+      .update({ status: next })
+      .eq("id", orderId);
+    const txid =
+      payload?.transaction_id ||
+      payload?.TransactionId ||
+      payload?.TxnId ||
+      null;
     const refno = payload?.reference_no || payload?.ReferenceNo || null;
-    const paymentPatch = { status: isSuccess ? 'captured' : (isFailed ? 'failed' : undefined), gateway_raw: payload };
+    const paymentPatch = {
+      status: isSuccess ? "captured" : isFailed ? "failed" : undefined,
+      gateway_raw: payload,
+    };
     if (txid) paymentPatch.gateway_transaction_id = txid;
     if (refno) paymentPatch.reference_no = refno;
-    await updatePaymentBySessionOrOrder({ sessionId, orderId, patch: paymentPatch, event: 'status_checked', eventPayload: payload });
+    await updatePaymentBySessionOrOrder({
+      sessionId,
+      orderId,
+      patch: paymentPatch,
+      event: "status_checked",
+      eventPayload: payload,
+    });
     if (isSuccess) {
       await safeUpdateOrderPaidAt(orderId, true);
 
-      // Increment coupon usage count when payment is verified as successful
-      try {
-        if (order.coupon_code) {
+      // Increment coupon usage count when payment is verified as successful (only if not already paid)
+      if (!order.paid_at && order.coupon_code) {
+        try {
           const { data: cp } = await supabaseAdmin
-            .from('coupons')
-            .select('id, used_count, usage_limit')
-            .eq('code', order.coupon_code)
+            .from("coupons")
+            .select("id, used_count, usage_limit")
+            .eq("code", order.coupon_code)
             .maybeSingle();
           if (cp) {
             const nextUsed = Number(cp.used_count || 0) + 1;
             const { error: updateError } = await supabaseAdmin
-              .from('coupons')
+              .from("coupons")
               .update({ used_count: nextUsed })
-              .eq('id', cp.id);
+              .eq("id", cp.id);
             if (updateError) {
-              console.error('[payment/verify] Failed to increment coupon usage:', updateError);
+              console.error(
+                "[payment/verify] Failed to increment coupon usage:",
+                updateError
+              );
             } else {
-              console.log(`[payment/verify] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+              console.log(
+                `[payment/verify] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
+              );
             }
           } else {
-            console.warn(`[payment/verify] Coupon ${order.coupon_code} not found in database`);
+            console.warn(
+              `[payment/verify] Coupon ${order.coupon_code} not found in database`
+            );
           }
+        } catch (e) {
+          console.error("[payment/verify] Error incrementing coupon usage:", e);
         }
-      } catch (e) {
-        console.error('[payment/verify] Error incrementing coupon usage:', e);
       }
     }
     return res.json({ status: next, gateway: payload });
   } catch (e) {
-    console.error('/api/payments/verify error', e);
-    return res.status(500).json({ error: 'internal_error' });
+    console.error("/api/payments/verify error", e);
+    return res.status(500).json({ error: "internal_error" });
   }
 }
-
-

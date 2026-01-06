@@ -1,17 +1,37 @@
 import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
-import { updatePaymentBySessionOrOrder, addPaymentEventIfSupported, safeUpdateOrderPaidAt } from "../_utils/payments.js";
+import {
+  updatePaymentBySessionOrOrder,
+  addPaymentEventIfSupported,
+  safeUpdateOrderPaidAt,
+} from "../_utils/payments.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
 const CLICK_DEVELOPER_USER = process.env.CLICK_DEVELOPER_USER;
 const CLICK_KEY = process.env.CLICK_KEY;
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET")
+    return res.status(405).json({ error: "Method not allowed" });
   try {
-    const { orderId, indicator_status, force, failIfPending, message, message_type } = req.query || {};
-    console.log("[payment/confirm] Start - orderId:", orderId, "message:", message, "message_type:", message_type);
+    const {
+      orderId,
+      indicator_status,
+      force,
+      failIfPending,
+      message,
+      message_type,
+    } = req.query || {};
+    console.log(
+      "[payment/confirm] Start - orderId:",
+      orderId,
+      "message:",
+      message,
+      "message_type:",
+      message_type
+    );
     if (!orderId) return res.status(400).json({ error: "orderId required" });
-    if (!CLICK_DEVELOPER_USER || !CLICK_KEY) return res.status(500).json({ error: "Gateway env missing" });
+    if (!CLICK_DEVELOPER_USER || !CLICK_KEY)
+      return res.status(500).json({ error: "Gateway env missing" });
 
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
@@ -21,11 +41,18 @@ export default async function handler(req, res) {
     if (oErr) throw oErr;
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    const forceRecheck = String(force || "").toLowerCase() === "1" || String(force || "").toLowerCase() === "true";
-    if (order.status === "paid" && !forceRecheck) return res.json({ status: "paid" });
+    const forceRecheck =
+      String(force || "").toLowerCase() === "1" ||
+      String(force || "").toLowerCase() === "true";
+    if (order.status === "paid" && !forceRecheck)
+      return res.json({ status: "paid" });
 
     // If the indicator token doesn't match, don't immediately fail; continue to verify via paymentstatus
-    const indicatorMismatch = !!(order.payment_ref && indicator_status && String(order.payment_ref) !== String(indicator_status));
+    const indicatorMismatch = !!(
+      order.payment_ref &&
+      indicator_status &&
+      String(order.payment_ref) !== String(indicator_status)
+    );
 
     const sessionId = String(req.query?.sessionId || order.mf_session_id || "");
     if (!sessionId) {
@@ -37,52 +64,93 @@ export default async function handler(req, res) {
     const msg = String(message || "").toLowerCase();
     if (msg) {
       // Map common gateway tokens to internal statuses
-      let next = msg === 'success' ? 'paid' : msg;
-      if (msg === 'error' || msg === 'wrong' || msg === 'fail' || msg === 'failed' || msg === 'rejected') next = 'failed';
-      if (msg === 'cancel' || msg === 'cancelled') next = 'cancelled';
-      console.log("[payment/confirm] Fast-path via message param:", msg, "→ status:", next);
-      await supabaseAdmin.from("orders").update({ status: next }).eq("id", orderId);
-      if (next === 'paid') {
+      let next = msg === "success" ? "paid" : msg;
+      if (
+        msg === "error" ||
+        msg === "wrong" ||
+        msg === "fail" ||
+        msg === "failed" ||
+        msg === "rejected"
+      )
+        next = "failed";
+      if (msg === "cancel" || msg === "cancelled") next = "cancelled";
+      console.log(
+        "[payment/confirm] Fast-path via message param:",
+        msg,
+        "→ status:",
+        next
+      );
+      await supabaseAdmin
+        .from("orders")
+        .update({ status: next })
+        .eq("id", orderId);
+      if (next === "paid") {
         await safeUpdateOrderPaidAt(orderId, true);
 
-        // Increment coupon usage count when payment is successful
-        try {
-          if (order.coupon_code) {
+        // Increment coupon usage count when payment is successful (only if not already paid)
+        if (!order.paid_at && order.coupon_code) {
+          try {
             const { data: cp } = await supabaseAdmin
-              .from('coupons')
-              .select('id, used_count, usage_limit')
-              .eq('code', order.coupon_code)
+              .from("coupons")
+              .select("id, used_count, usage_limit")
+              .eq("code", order.coupon_code)
               .maybeSingle();
             if (cp) {
               const nextUsed = Number(cp.used_count || 0) + 1;
               const { error: updateError } = await supabaseAdmin
-                .from('coupons')
+                .from("coupons")
                 .update({ used_count: nextUsed })
-                .eq('id', cp.id);
+                .eq("id", cp.id);
               if (updateError) {
-                console.error('[payment/confirm] Fast-path: Failed to increment coupon usage:', updateError);
+                console.error(
+                  "[payment/confirm] Failed to increment coupon usage:",
+                  updateError
+                );
               } else {
-                console.log(`[payment/confirm] Fast-path: Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+                console.log(
+                  `[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
+                );
               }
             } else {
-              console.warn(`[payment/confirm] Fast-path: Coupon ${order.coupon_code} not found in database`);
+              console.warn(
+                `[payment/confirm] Coupon ${order.coupon_code} not found in database`
+              );
             }
+          } catch (e) {
+            console.error(
+              "[payment/confirm] Error incrementing coupon usage:",
+              e
+            );
           }
-        } catch (e) {
-          console.error('[payment/confirm] Fast-path: Error incrementing coupon usage:', e);
         }
       }
       await updatePaymentBySessionOrOrder({
         sessionId,
         orderId,
-        patch: { status: next === 'paid' ? 'captured' : (next === 'failed' ? 'failed' : undefined) },
-        event: 'status_checked',
-        eventPayload: { via: 'return_message', message: msg, message_type: message_type || null },
+        patch: {
+          status:
+            next === "paid"
+              ? "captured"
+              : next === "failed"
+              ? "failed"
+              : undefined,
+        },
+        event: "status_checked",
+        eventPayload: {
+          via: "return_message",
+          message: msg,
+          message_type: message_type || null,
+        },
       });
-      return res.json({ status: next, gateway: { via: 'return_message', message: msg, message_type } });
+      return res.json({
+        status: next,
+        gateway: { via: "return_message", message: msg, message_type },
+      });
     }
 
-    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(CLICK_DEVELOPER_USER)}`;
+    const url = `${CLICK_BASE_URL}/api/developer/gatedeveloper/paymentstatus/${encodeURIComponent(
+      CLICK_DEVELOPER_USER
+    )}`;
     // For payment status check, reuse the Click order_id from session creation (stored in order_number)
     // Ensure it stays within INT range for Click API
     let uniqueOrderId = order.order_number;
@@ -90,7 +158,10 @@ export default async function handler(req, res) {
       const timestampPart = Date.now() % 1000000000;
       uniqueOrderId = timestampPart + (Number(order.id) || 0);
     }
-    const postBody = JSON.stringify({ session_id: sessionId, order_id: uniqueOrderId });
+    const postBody = JSON.stringify({
+      session_id: sessionId,
+      order_id: uniqueOrderId,
+    });
 
     async function fetchStatusOnce() {
       const r = await fetch(url, {
@@ -103,43 +174,87 @@ export default async function handler(req, res) {
       });
       if (!r.ok) {
         const msg = await r.text().catch(() => "");
-        return { error: "paymentstatus_http_error", httpStatus: r.status, body: msg };
+        return {
+          error: "paymentstatus_http_error",
+          httpStatus: r.status,
+          body: msg,
+        };
       }
       const payload = await r.json().catch(() => ({}));
-      const statusStr = String(payload?.Status || payload?.status || payload?.Response || payload?.response || "").toLowerCase();
+      const statusStr = String(
+        payload?.Status ||
+          payload?.status ||
+          payload?.Response ||
+          payload?.response ||
+          ""
+      ).toLowerCase();
       const isSuccess = statusStr === "success";
-      const isFailed = statusStr === "failed" || statusStr === "fail" || statusStr === "rejected";
+      const isFailed =
+        statusStr === "failed" ||
+        statusStr === "fail" ||
+        statusStr === "rejected";
       return { payload, statusStr, isSuccess, isFailed };
     }
 
     // Optional short polling when forced, to account for gateway propagation delays
-    const maxWaitMs = 1000 * Math.min(60, Number(req.query?.wait || (forceRecheck ? 10 : 0))); // default 10s when force=1
+    const maxWaitMs =
+      1000 * Math.min(60, Number(req.query?.wait || (forceRecheck ? 10 : 0))); // default 10s when force=1
     const started = Date.now();
     let last = await fetchStatusOnce();
-    while (!last.error && !last.isSuccess && !last.isFailed && Date.now() - started < maxWaitMs) {
+    while (
+      !last.error &&
+      !last.isSuccess &&
+      !last.isFailed &&
+      Date.now() - started < maxWaitMs
+    ) {
       await new Promise((r) => setTimeout(r, 1000));
       last = await fetchStatusOnce();
     }
 
     if (last.error) {
-      return res.status(502).json({ error: last.error, status: last.httpStatus, body: last.body });
+      return res
+        .status(502)
+        .json({ error: last.error, status: last.httpStatus, body: last.body });
     }
 
     // Update order conservatively: mark paid on success; mark failed only on explicit failure; else keep pending
-    let next = last.isSuccess ? "paid" : (last.isFailed ? "failed" : order.status);
+    let next = last.isSuccess
+      ? "paid"
+      : last.isFailed
+      ? "failed"
+      : order.status;
     // Optional override: when requested, finalize non-success states as failed (e.g., user aborted on gateway page)
-    const shouldFailIfPending = String(failIfPending || "").toLowerCase() === "1" || String(failIfPending || "").toLowerCase() === "true";
+    const shouldFailIfPending =
+      String(failIfPending || "").toLowerCase() === "1" ||
+      String(failIfPending || "").toLowerCase() === "true";
     if (!last.isSuccess && !last.isFailed && shouldFailIfPending) {
       next = "failed";
     }
-    console.log("[payment/confirm] Gateway status check result:", last.statusStr, "→ order status:", next);
+    console.log(
+      "[payment/confirm] Gateway status check result:",
+      last.statusStr,
+      "→ order status:",
+      next
+    );
     const orderPatch = { status: next };
     await supabaseAdmin.from("orders").update(orderPatch).eq("id", orderId);
 
     // Persist gateway payload and events in payments table if available
-    const txid = last?.payload?.transaction_id || last?.payload?.TransactionId || last?.payload?.TxnId || null;
-    const refno = last?.payload?.reference_no || last?.payload?.ReferenceNo || null;
-    const paymentPatch = { status: last.isSuccess ? "captured" : (last.isFailed ? "failed" : undefined), gateway_raw: last.payload };
+    const txid =
+      last?.payload?.transaction_id ||
+      last?.payload?.TransactionId ||
+      last?.payload?.TxnId ||
+      null;
+    const refno =
+      last?.payload?.reference_no || last?.payload?.ReferenceNo || null;
+    const paymentPatch = {
+      status: last.isSuccess
+        ? "captured"
+        : last.isFailed
+        ? "failed"
+        : undefined,
+      gateway_raw: last.payload,
+    };
     if (txid) paymentPatch.gateway_transaction_id = txid;
     if (refno) paymentPatch.reference_no = refno;
     await updatePaymentBySessionOrOrder({
@@ -154,41 +269,53 @@ export default async function handler(req, res) {
     if (last.isSuccess) {
       await safeUpdateOrderPaidAt(orderId, true);
       if (String(order.mf_session_id || "") !== String(sessionId)) {
-        await supabaseAdmin.from("orders").update({ mf_session_id: sessionId }).eq("id", orderId);
+        await supabaseAdmin
+          .from("orders")
+          .update({ mf_session_id: sessionId })
+          .eq("id", orderId);
       }
       // Increment coupon usage count when payment is confirmed
       try {
         if (order.coupon_code) {
           const { data: cp } = await supabaseAdmin
-            .from('coupons')
-            .select('id, used_count, usage_limit')
-            .eq('code', order.coupon_code)
+            .from("coupons")
+            .select("id, used_count, usage_limit")
+            .eq("code", order.coupon_code)
             .maybeSingle();
           if (cp) {
             const nextUsed = Number(cp.used_count || 0) + 1;
             const { error: updateError } = await supabaseAdmin
-              .from('coupons')
+              .from("coupons")
               .update({ used_count: nextUsed })
-              .eq('id', cp.id);
+              .eq("id", cp.id);
             if (updateError) {
-              console.error('[payment/confirm] Failed to increment coupon usage:', updateError);
+              console.error(
+                "[payment/confirm] Failed to increment coupon usage:",
+                updateError
+              );
             } else {
-              console.log(`[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+              console.log(
+                `[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
+              );
             }
           } else {
-            console.warn(`[payment/confirm] Coupon ${order.coupon_code} not found in database`);
+            console.warn(
+              `[payment/confirm] Coupon ${order.coupon_code} not found in database`
+            );
           }
         }
       } catch (e) {
-        console.error('[payment/confirm] Error incrementing coupon usage:', e);
+        console.error("[payment/confirm] Error incrementing coupon usage:", e);
       }
     }
 
-    return res.json({ status: next, gateway: last.payload, indicator_mismatch: indicatorMismatch || undefined });
+    return res.json({
+      status: next,
+      gateway: last.payload,
+      indicator_mismatch: indicatorMismatch || undefined,
+    });
   } catch (e) {
     console.error("/api/payments/confirm error", e);
     return res.status(500).json({ error: "internal_error" });
   }
 }
-
-
