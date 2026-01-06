@@ -638,9 +638,11 @@ export default function CheckoutPage({ store, t }) {
                       store.setCoupon(res.data.code);
                     } else {
                       setCouponMeta(null);
-                      if (res.reason === 'limit_reached') {
-                        alert("This coupon has reached its usage limit and is no longer available");
-                      } else if (res.reason === 'not_found') {
+                      if (res.reason === "limit_reached") {
+                        alert(
+                          "This coupon has reached its usage limit and is no longer available"
+                        );
+                      } else if (res.reason === "not_found") {
                         alert("Invalid or expired coupon");
                       } else {
                         alert("Invalid coupon");
@@ -816,6 +818,19 @@ export default function CheckoutPage({ store, t }) {
                     .single();
                   if (orderError) throw orderError;
                   order = created;
+
+                  // Generate unique order_number for COD orders (similar to card payment logic)
+                  const timestampPart = Date.now() % 1000000000;
+                  const uniqueOrderNumber =
+                    timestampPart + (Number(order.id) || 0);
+
+                  const { error: updateError } = await supabase
+                    .from("orders")
+                    .update({ order_number: uniqueOrderNumber })
+                    .eq("id", order.id);
+
+                  if (updateError) throw updateError;
+                  order.order_number = uniqueOrderNumber;
                 }
 
                 // Create order items
@@ -841,19 +856,19 @@ export default function CheckoutPage({ store, t }) {
                   if (coupon) {
                     try {
                       const { data: cp } = await supabase
-                        .from('coupons')
-                        .select('id, used_count, usage_limit')
-                        .eq('code', coupon)
+                        .from("coupons")
+                        .select("id, used_count, usage_limit")
+                        .eq("code", coupon)
                         .maybeSingle();
                       if (cp) {
                         const nextUsed = Number(cp.used_count || 0) + 1;
                         await supabase
-                          .from('coupons')
+                          .from("coupons")
                           .update({ used_count: nextUsed })
-                          .eq('id', cp.id);
+                          .eq("id", cp.id);
                       }
                     } catch (e) {
-                      console.error('Failed to increment coupon usage:', e);
+                      console.error("Failed to increment coupon usage:", e);
                     }
                   }
 
@@ -886,8 +901,14 @@ export default function CheckoutPage({ store, t }) {
                         );
                         // Delete the order since payment session failed
                         try {
-                          await supabase.from("order_items").delete().eq("order_id", order.id);
-                          await supabase.from("orders").delete().eq("id", order.id);
+                          await supabase
+                            .from("order_items")
+                            .delete()
+                            .eq("order_id", order.id);
+                          await supabase
+                            .from("orders")
+                            .delete()
+                            .eq("id", order.id);
                         } catch (delErr) {
                           console.error("Failed to cleanup order:", delErr);
                         }
@@ -905,7 +926,10 @@ export default function CheckoutPage({ store, t }) {
                     console.error("Gateway error", gwErr);
                     // Delete the order and its items since payment session failed
                     try {
-                      await supabase.from("order_items").delete().eq("order_id", order.id);
+                      await supabase
+                        .from("order_items")
+                        .delete()
+                        .eq("order_id", order.id);
                       await supabase.from("orders").delete().eq("id", order.id);
                     } catch (delErr) {
                       console.error("Failed to cleanup order:", delErr);
