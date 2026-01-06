@@ -2819,9 +2819,7 @@ function fmtDT(v) {
   return new Date(v).toLocaleString("en-US", { timeZone: "Asia/Kuwait" });
 }
 function convertKuwaitToUTC(datetimeLocal) {
-  const kuwaitDate = new Date(datetimeLocal);
-  const utcDate = new Date(kuwaitDate.getTime() - 3 * 60 * 60 * 1000);
-  return utcDate.toISOString();
+  return datetimeLocal + ":00+03:00";
 }
 
 // Convert an image File to WebP Blob using canvas

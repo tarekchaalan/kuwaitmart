@@ -796,6 +796,30 @@ export default function CheckoutPage({ store, t }) {
                     err.invalid = guestValidation.invalid;
                     throw err;
                   }
+
+                  // Re-validate coupon at checkout time to prevent expired coupons from being used
+                  if (coupon) {
+                    const couponCheck = await validateCoupon(coupon);
+                    if (!couponCheck.valid) {
+                      setCouponMeta(null);
+                      store.setCoupon("");
+                      if (couponCheck.reason === "limit_reached") {
+                        alert(
+                          "This coupon has reached its usage limit and can no longer be used. Please remove it and try again."
+                        );
+                      } else if (couponCheck.reason === "not_found") {
+                        alert(
+                          "This coupon has expired or is no longer valid. Please remove it and try again."
+                        );
+                      } else {
+                        alert(
+                          "Coupon is no longer valid. Please remove it and try again."
+                        );
+                      }
+                      throw new Error("coupon_invalid_at_checkout");
+                    }
+                  }
+
                   const { data: created, error: orderError } = await supabase
                     .from("orders")
                     .insert({
