@@ -2816,7 +2816,7 @@ function safeJSON(v) {
 }
 function fmtDT(v) {
   if (!v) return "—";
-  return new Date(v).toLocaleString();
+  return new Date(v).toLocaleString("en-US", { timeZone: "Asia/Kuwait" });
 }
 
 // Convert an image File to WebP Blob using canvas
