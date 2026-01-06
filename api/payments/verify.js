@@ -58,6 +58,33 @@ export default async function handler(req, res) {
     await updatePaymentBySessionOrOrder({ sessionId, orderId, patch: paymentPatch, event: 'status_checked', eventPayload: payload });
     if (isSuccess) {
       await safeUpdateOrderPaidAt(orderId, true);
+
+      // Increment coupon usage count when payment is verified as successful
+      try {
+        if (order.coupon_code) {
+          const { data: cp } = await supabaseAdmin
+            .from('coupons')
+            .select('id, used_count, usage_limit')
+            .eq('code', order.coupon_code)
+            .maybeSingle();
+          if (cp) {
+            const nextUsed = Number(cp.used_count || 0) + 1;
+            const { error: updateError } = await supabaseAdmin
+              .from('coupons')
+              .update({ used_count: nextUsed })
+              .eq('id', cp.id);
+            if (updateError) {
+              console.error('[payment/verify] Failed to increment coupon usage:', updateError);
+            } else {
+              console.log(`[payment/verify] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+            }
+          } else {
+            console.warn(`[payment/verify] Coupon ${order.coupon_code} not found in database`);
+          }
+        }
+      } catch (e) {
+        console.error('[payment/verify] Error incrementing coupon usage:', e);
+      }
     }
     return res.json({ status: next, gateway: payload });
   } catch (e) {

@@ -56,19 +56,21 @@ describe('lib/api', () => {
     expect(await fetchProductBySlug('slug')).toEqual({ id: 'p2' });
   });
 
-  it('validateCoupon returns data or null', async () => {
+  it('validateCoupon returns validation result with reason', async () => {
     vi.doMock('../../src/lib/supabaseClient.js', () => ({
       getSupabase: () => ({
         from: () => ({
           select: () => ({
-            eq: () => ({ lte: () => ({ gte: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: { code: 'SAVE10' }, error: null }) }) }) }) }),
+            eq: () => ({ lte: () => ({ gte: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: { code: 'SAVE10', used_count: 0, usage_limit: 10 }, error: null }) }) }) }) }),
           }),
         }),
       }),
     }));
     const { validateCoupon } = await import('../../src/lib/api.js');
-    expect(await validateCoupon('SAVE10')).toEqual({ code: 'SAVE10' });
-    expect(await validateCoupon('')).toBeNull();
+    const validResult = await validateCoupon('SAVE10');
+    expect(validResult).toEqual({ valid: true, data: { code: 'SAVE10', used_count: 0, usage_limit: 10 } });
+    const emptyResult = await validateCoupon('');
+    expect(emptyResult).toEqual({ valid: false, reason: 'empty' });
   });
 
   it('createOrder inserts and returns id/order_number', async () => {

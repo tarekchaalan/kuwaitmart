@@ -122,19 +122,33 @@ export async function fetchProductBySlug(slug) {
 }
 
 export async function validateCoupon(code) {
-  if (!code) return null;
+  if (!code) return { valid: false, reason: 'empty' };
   const supabase = getSupabase();
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("coupons")
-    .select("code, pct_off, amount_off_kwd")
+    .select("code, pct_off, amount_off_kwd, used_count, usage_limit")
     .eq("active", true)
     .lte("starts_at", now)
     .gte("ends_at", now)
     .ilike("code", code)
     .maybeSingle();
   if (error) throw error;
-  return data;
+
+  if (!data) {
+    return { valid: false, reason: 'not_found' };
+  }
+
+  // Check if coupon has reached its usage limit
+  if (data.usage_limit !== null && data.usage_limit !== undefined) {
+    const usedCount = Number(data.used_count || 0);
+    const usageLimit = Number(data.usage_limit);
+    if (usedCount >= usageLimit) {
+      return { valid: false, reason: 'limit_reached', data };
+    }
+  }
+
+  return { valid: true, data };
 }
 
 export async function createOrder(payload) {

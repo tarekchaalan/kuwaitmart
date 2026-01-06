@@ -633,12 +633,18 @@ export default function CheckoutPage({ store, t }) {
                 onClick={async () => {
                   try {
                     const res = await validateCoupon(coupon);
-                    if (res) {
-                      setCouponMeta(res);
-                      store.setCoupon(res.code);
+                    if (res.valid) {
+                      setCouponMeta(res.data);
+                      store.setCoupon(res.data.code);
                     } else {
                       setCouponMeta(null);
-                      alert("Invalid or expired coupon");
+                      if (res.reason === 'limit_reached') {
+                        alert("This coupon has reached its usage limit and is no longer available");
+                      } else if (res.reason === 'not_found') {
+                        alert("Invalid or expired coupon");
+                      } else {
+                        alert("Invalid coupon");
+                      }
                     }
                   } catch (e) {
                     console.error(e);
@@ -831,6 +837,26 @@ export default function CheckoutPage({ store, t }) {
                 if (itemsError) throw new Error("order_items_failed");
 
                 if (paymentMethod === "cod") {
+                  // Increment coupon usage count for COD orders
+                  if (coupon) {
+                    try {
+                      const { data: cp } = await supabase
+                        .from('coupons')
+                        .select('id, used_count, usage_limit')
+                        .eq('code', coupon)
+                        .maybeSingle();
+                      if (cp) {
+                        const nextUsed = Number(cp.used_count || 0) + 1;
+                        await supabase
+                          .from('coupons')
+                          .update({ used_count: nextUsed })
+                          .eq('id', cp.id);
+                      }
+                    } catch (e) {
+                      console.error('Failed to increment coupon usage:', e);
+                    }
+                  }
+
                   try {
                     const { clearCart, getCartCount } = await import(
                       "../lib/cart.js"

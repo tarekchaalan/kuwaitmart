@@ -2135,6 +2135,34 @@ function Orders() {
                                     })
                                     .eq("id", receipt.id);
                                   if (error) throw error;
+
+                                  // Increment coupon usage count when manually marking as paid
+                                  if (receipt.coupon_code) {
+                                    try {
+                                      const { data: cp } = await supabase
+                                        .from("coupons")
+                                        .select("id, used_count, usage_limit")
+                                        .eq("code", receipt.coupon_code)
+                                        .maybeSingle();
+                                      if (cp) {
+                                        const nextUsed =
+                                          Number(cp.used_count || 0) + 1;
+                                        await supabase
+                                          .from("coupons")
+                                          .update({ used_count: nextUsed })
+                                          .eq("id", cp.id);
+                                        console.log(
+                                          `Admin: Incremented coupon ${receipt.coupon_code} usage to ${nextUsed}`
+                                        );
+                                      }
+                                    } catch (e) {
+                                      console.error(
+                                        "Failed to increment coupon usage:",
+                                        e
+                                      );
+                                    }
+                                  }
+
                                   await load();
                                   const { data: updated } = await supabase
                                     .from("orders")
@@ -2211,6 +2239,34 @@ function Orders() {
                                     })
                                     .eq("id", receipt.id);
                                   if (error) throw error;
+
+                                  // Increment coupon usage count when manually marking as paid
+                                  if (receipt.coupon_code) {
+                                    try {
+                                      const { data: cp } = await supabase
+                                        .from("coupons")
+                                        .select("id, used_count, usage_limit")
+                                        .eq("code", receipt.coupon_code)
+                                        .maybeSingle();
+                                      if (cp) {
+                                        const nextUsed =
+                                          Number(cp.used_count || 0) + 1;
+                                        await supabase
+                                          .from("coupons")
+                                          .update({ used_count: nextUsed })
+                                          .eq("id", cp.id);
+                                        console.log(
+                                          `Admin: Incremented coupon ${receipt.coupon_code} usage to ${nextUsed}`
+                                        );
+                                      }
+                                    } catch (e) {
+                                      console.error(
+                                        "Failed to increment coupon usage:",
+                                        e
+                                      );
+                                    }
+                                  }
+
                                   await load();
                                   const { data: updated } = await supabase
                                     .from("orders")
@@ -2285,6 +2341,34 @@ function Orders() {
                                     })
                                     .eq("id", receipt.id);
                                   if (error) throw error;
+
+                                  // Increment coupon usage count when manually marking as paid
+                                  if (receipt.coupon_code) {
+                                    try {
+                                      const { data: cp } = await supabase
+                                        .from("coupons")
+                                        .select("id, used_count, usage_limit")
+                                        .eq("code", receipt.coupon_code)
+                                        .maybeSingle();
+                                      if (cp) {
+                                        const nextUsed =
+                                          Number(cp.used_count || 0) + 1;
+                                        await supabase
+                                          .from("coupons")
+                                          .update({ used_count: nextUsed })
+                                          .eq("id", cp.id);
+                                        console.log(
+                                          `Admin: Incremented coupon ${receipt.coupon_code} usage to ${nextUsed}`
+                                        );
+                                      }
+                                    } catch (e) {
+                                      console.error(
+                                        "Failed to increment coupon usage:",
+                                        e
+                                      );
+                                    }
+                                  }
+
                                   await load();
                                   const { data: updated } = await supabase
                                     .from("orders")
@@ -2452,12 +2536,46 @@ function Orders() {
                       <div className="text-sm flex items-center gap-2">
                         <span className="text-slate-500">Delivery Status:</span>
                         {receipt?.delivered_at ? (
-                          <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200">
-                            Delivered{" "}
-                            {new Date(
-                              receipt.delivered_at
-                            ).toLocaleDateString()}
-                          </span>
+                          <>
+                            <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200">
+                              Delivered{" "}
+                              {new Date(
+                                receipt.delivered_at
+                              ).toLocaleDateString()}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (!receipt?.id) return;
+                                setVerifyMsg("");
+                                setMarking(true);
+                                try {
+                                  const { error } = await supabase
+                                    .from("orders")
+                                    .update({
+                                      delivered_at: null,
+                                    })
+                                    .eq("id", receipt.id);
+                                  if (error) throw error;
+                                  await load();
+                                  const { data: updated } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("id", receipt.id)
+                                    .maybeSingle();
+                                  setReceipt(updated || receipt);
+                                  setVerifyMsg("Delivery status reverted");
+                                } catch (e) {
+                                  console.error("revert delivery error", e);
+                                  alert("Failed to revert delivery status");
+                                } finally {
+                                  setMarking(false);
+                                }
+                              }}
+                              disabled={marking || deleting}
+                              className="rounded-full w-4 h-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
+                              title="Revert to Awaiting Delivery"
+                            />
+                          </>
                         ) : (
                           <>
                             <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border-amber-200">

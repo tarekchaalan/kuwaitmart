@@ -42,7 +42,36 @@ export default async function handler(req, res) {
       if (msg === 'cancel' || msg === 'cancelled') next = 'cancelled';
       console.log("[payment/confirm] Fast-path via message param:", msg, "→ status:", next);
       await supabaseAdmin.from("orders").update({ status: next }).eq("id", orderId);
-      if (next === 'paid') { await safeUpdateOrderPaidAt(orderId, true); }
+      if (next === 'paid') {
+        await safeUpdateOrderPaidAt(orderId, true);
+
+        // Increment coupon usage count when payment is successful
+        try {
+          if (order.coupon_code) {
+            const { data: cp } = await supabaseAdmin
+              .from('coupons')
+              .select('id, used_count, usage_limit')
+              .eq('code', order.coupon_code)
+              .maybeSingle();
+            if (cp) {
+              const nextUsed = Number(cp.used_count || 0) + 1;
+              const { error: updateError } = await supabaseAdmin
+                .from('coupons')
+                .update({ used_count: nextUsed })
+                .eq('id', cp.id);
+              if (updateError) {
+                console.error('[payment/confirm] Fast-path: Failed to increment coupon usage:', updateError);
+              } else {
+                console.log(`[payment/confirm] Fast-path: Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+              }
+            } else {
+              console.warn(`[payment/confirm] Fast-path: Coupon ${order.coupon_code} not found in database`);
+            }
+          }
+        } catch (e) {
+          console.error('[payment/confirm] Fast-path: Error incrementing coupon usage:', e);
+        }
+      }
       await updatePaymentBySessionOrOrder({
         sessionId,
         orderId,
@@ -137,13 +166,22 @@ export default async function handler(req, res) {
             .maybeSingle();
           if (cp) {
             const nextUsed = Number(cp.used_count || 0) + 1;
-            await supabaseAdmin
+            const { error: updateError } = await supabaseAdmin
               .from('coupons')
               .update({ used_count: nextUsed })
               .eq('id', cp.id);
+            if (updateError) {
+              console.error('[payment/confirm] Failed to increment coupon usage:', updateError);
+            } else {
+              console.log(`[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`);
+            }
+          } else {
+            console.warn(`[payment/confirm] Coupon ${order.coupon_code} not found in database`);
           }
         }
-      } catch {}
+      } catch (e) {
+        console.error('[payment/confirm] Error incrementing coupon usage:', e);
+      }
     }
 
     return res.json({ status: next, gateway: last.payload, indicator_mismatch: indicatorMismatch || undefined });

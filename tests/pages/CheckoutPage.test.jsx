@@ -19,7 +19,7 @@ vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/cart.js', () => ({
 
 vi.mock('/Users/tarek/Developer/Work/kuwaitmart/src/lib/api.js', () => ({
   createOrder: vi.fn(),
-  validateCoupon: vi.fn(async () => null),
+  validateCoupon: vi.fn(async () => ({ valid: false, reason: 'not_found' })),
 }));
 
 describe('CheckoutPage', () => {
