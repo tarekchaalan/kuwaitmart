@@ -595,6 +595,7 @@ function Products() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
+  const [bulkCategoryId, setBulkCategoryId] = useState(""); // for bulk add category
 
   const activeRows = useMemo(
     () => (rows || []).filter((r) => !!r.active),
@@ -1213,6 +1214,66 @@ function Products() {
     }
   };
 
+  const bulkAddCategory = async () => {
+    if (selectedIds.length === 0) return;
+    if (!bulkCategoryId) {
+      alert("Please select a category to add");
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      // First, fetch existing product-category associations for selected products
+      const { data: existing, error: fetchErr } = await supabase
+        .from("product_categories")
+        .select("product_id, category_id")
+        .in("product_id", selectedIds)
+        .eq("category_id", bulkCategoryId);
+
+      if (fetchErr) throw fetchErr;
+
+      // Create a set of product IDs that already have this category
+      const existingProductIds = new Set(
+        (existing || []).map((row) => row.product_id)
+      );
+
+      // Filter to only products that don't already have this category
+      const productsToUpdate = selectedIds.filter(
+        (id) => !existingProductIds.has(id)
+      );
+
+      if (productsToUpdate.length === 0) {
+        alert("All selected products already have this category");
+        setBulkLoading(false);
+        return;
+      }
+
+      // Insert new product-category associations
+      const insertRows = productsToUpdate.map((productId) => ({
+        product_id: productId,
+        category_id: bulkCategoryId,
+      }));
+
+      const { error: insertErr } = await supabase
+        .from("product_categories")
+        .insert(insertRows);
+
+      if (insertErr) throw insertErr;
+
+      alert(
+        `Successfully added category to ${productsToUpdate.length} product(s)`
+      );
+      setBulkCategoryId("");
+      clearSelection();
+      await load();
+    } catch (e) {
+      console.error("bulk add category error", e);
+      alert("Failed to add category to selected products");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-white p-4">
@@ -1454,6 +1515,26 @@ function Products() {
                   Mark inactive
                 </button>
               )}
+              <select
+                value={bulkCategoryId}
+                onChange={(e) => setBulkCategoryId(e.target.value)}
+                disabled={bulkLoading}
+                className="rounded border px-2 py-1 text-sm"
+              >
+                <option value="">Select category</option>
+                {cats.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name_en}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={bulkAddCategory}
+                disabled={bulkLoading || !bulkCategoryId}
+                className="rounded border border-emerald-300 text-emerald-700 px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Category
+              </button>
               <button
                 onClick={bulkDelete}
                 disabled={bulkLoading}
