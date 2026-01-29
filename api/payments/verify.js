@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../_utils/supabaseAdmin.js";
 import {
   updatePaymentBySessionOrOrder,
   safeUpdateOrderPaidAt,
+  incrementCouponUsageAtomic,
 } from "../_utils/payments.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
@@ -109,38 +110,9 @@ export default async function handler(req, res) {
     if (isSuccess) {
       await safeUpdateOrderPaidAt(orderId, true);
 
-      // Increment coupon usage count when payment is verified as successful (only if not already paid)
-      if (!order.paid_at && order.coupon_code) {
-        try {
-          const { data: cp } = await supabaseAdmin
-            .from("coupons")
-            .select("id, used_count, usage_limit")
-            .eq("code", order.coupon_code)
-            .maybeSingle();
-          if (cp) {
-            const nextUsed = Number(cp.used_count || 0) + 1;
-            const { error: updateError } = await supabaseAdmin
-              .from("coupons")
-              .update({ used_count: nextUsed })
-              .eq("id", cp.id);
-            if (updateError) {
-              console.error(
-                "[payment/verify] Failed to increment coupon usage:",
-                updateError
-              );
-            } else {
-              console.log(
-                `[payment/verify] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
-              );
-            }
-          } else {
-            console.warn(
-              `[payment/verify] Coupon ${order.coupon_code} not found in database`
-            );
-          }
-        } catch (e) {
-          console.error("[payment/verify] Error incrementing coupon usage:", e);
-        }
+      // Atomically increment coupon usage (handles deduplication internally)
+      if (order.coupon_code) {
+        await incrementCouponUsageAtomic(orderId, order.coupon_code);
       }
     }
     return res.json({ status: next, gateway: payload });

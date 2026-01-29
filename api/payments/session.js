@@ -157,16 +157,7 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error("/api/payments/session error:", e);
-    console.error("Error details:", { message: e?.message, stack: e?.stack });
-    const dev = process.env.NODE_ENV !== "production";
-    return res.status(500).json(
-      dev
-        ? {
-            error: "internal_error",
-            message: String(e?.message || e),
-            stack: e?.stack,
-          }
-        : { error: "internal_error" }
-    );
+    // Never expose stack traces - log server-side only
+    return res.status(500).json({ error: "internal_error" });
   }
 }

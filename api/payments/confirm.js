@@ -3,6 +3,7 @@ import {
   updatePaymentBySessionOrOrder,
   addPaymentEventIfSupported,
   safeUpdateOrderPaidAt,
+  incrementCouponUsageAtomic,
 } from "../_utils/payments.js";
 
 const CLICK_BASE_URL = process.env.CLICK_BASE_URL || "https://clickkw.com";
@@ -87,41 +88,9 @@ export default async function handler(req, res) {
       if (next === "paid") {
         await safeUpdateOrderPaidAt(orderId, true);
 
-        // Increment coupon usage count when payment is successful (only if not already paid)
-        if (!order.paid_at && order.coupon_code) {
-          try {
-            const { data: cp } = await supabaseAdmin
-              .from("coupons")
-              .select("id, used_count, usage_limit")
-              .eq("code", order.coupon_code)
-              .maybeSingle();
-            if (cp) {
-              const nextUsed = Number(cp.used_count || 0) + 1;
-              const { error: updateError } = await supabaseAdmin
-                .from("coupons")
-                .update({ used_count: nextUsed })
-                .eq("id", cp.id);
-              if (updateError) {
-                console.error(
-                  "[payment/confirm] Failed to increment coupon usage:",
-                  updateError
-                );
-              } else {
-                console.log(
-                  `[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
-                );
-              }
-            } else {
-              console.warn(
-                `[payment/confirm] Coupon ${order.coupon_code} not found in database`
-              );
-            }
-          } catch (e) {
-            console.error(
-              "[payment/confirm] Error incrementing coupon usage:",
-              e
-            );
-          }
+        // Atomically increment coupon usage (handles deduplication internally)
+        if (order.coupon_code) {
+          await incrementCouponUsageAtomic(orderId, order.coupon_code);
         }
       }
       await updatePaymentBySessionOrOrder({
@@ -197,9 +166,12 @@ export default async function handler(req, res) {
     }
 
     // Optional short polling when forced, to account for gateway propagation delays
+    // Uses exponential backoff: 1s, 2s, 4s, 8s... (max 10s between attempts)
     const maxWaitMs =
       1000 * Math.min(60, Number(req.query?.wait || (forceRecheck ? 10 : 0))); // default 10s when force=1
     const started = Date.now();
+    let delay = 1000; // Start with 1 second
+    const maxDelay = 10000; // Cap at 10 seconds
     let last = await fetchStatusOnce();
     while (
       !last.error &&
@@ -207,7 +179,10 @@ export default async function handler(req, res) {
       !last.isFailed &&
       Date.now() - started < maxWaitMs
     ) {
-      await new Promise((r) => setTimeout(r, 1000));
+      // Add jitter (±20%) to prevent thundering herd
+      const jitter = delay * 0.2 * (Math.random() - 0.5);
+      await new Promise((r) => setTimeout(r, delay + jitter));
+      delay = Math.min(delay * 2, maxDelay); // Exponential backoff
       last = await fetchStatusOnce();
     }
 
@@ -274,38 +249,9 @@ export default async function handler(req, res) {
           .update({ mf_session_id: sessionId })
           .eq("id", orderId);
       }
-      // Increment coupon usage count when payment is confirmed
-      try {
-        if (order.coupon_code) {
-          const { data: cp } = await supabaseAdmin
-            .from("coupons")
-            .select("id, used_count, usage_limit")
-            .eq("code", order.coupon_code)
-            .maybeSingle();
-          if (cp) {
-            const nextUsed = Number(cp.used_count || 0) + 1;
-            const { error: updateError } = await supabaseAdmin
-              .from("coupons")
-              .update({ used_count: nextUsed })
-              .eq("id", cp.id);
-            if (updateError) {
-              console.error(
-                "[payment/confirm] Failed to increment coupon usage:",
-                updateError
-              );
-            } else {
-              console.log(
-                `[payment/confirm] Incremented coupon ${order.coupon_code} usage to ${nextUsed}`
-              );
-            }
-          } else {
-            console.warn(
-              `[payment/confirm] Coupon ${order.coupon_code} not found in database`
-            );
-          }
-        }
-      } catch (e) {
-        console.error("[payment/confirm] Error incrementing coupon usage:", e);
+      // Atomically increment coupon usage (handles deduplication internally)
+      if (order.coupon_code) {
+        await incrementCouponUsageAtomic(orderId, order.coupon_code);
       }
     }
 
