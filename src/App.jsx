@@ -6,6 +6,7 @@ import CheckoutPage from "./pages/CheckoutPage.jsx";
 import OrdersPage from "./pages/OrdersPage.jsx";
 import Footer from "./components/Footer.jsx";
 import CartDrawer from "./components/cart/CartDrawer.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { useStore } from "./state/store.js";
 import { useRTL } from "./hooks/useRTL.js";
 import { DICT } from "./i18n/dict.js";
@@ -18,7 +19,8 @@ import Privacy from "./pages/Privacy.jsx";
 function parseRoute(pathname) {
   const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts.length === 0) return { name: "home", params: {} };
-  if (parts[0] === "checkout" && parts[1] === "return") return { name: "checkout_return", params: {} };
+  if (parts[0] === "checkout" && parts[1] === "return")
+    return { name: "checkout_return", params: {} };
   if (parts[0] === "checkout") return { name: "checkout", params: {} };
   if (parts[0] === "orders") return { name: "orders", params: {} };
   if (parts[0] === "product" && parts[1])
@@ -29,7 +31,7 @@ function parseRoute(pathname) {
 
 function useRouter() {
   const [route, setRoute] = React.useState(() =>
-    parseRoute(window.location.pathname)
+    parseRoute(window.location.pathname),
   );
   React.useEffect(() => {
     const onPop = () => setRoute(parseRoute(window.location.pathname));
@@ -82,7 +84,7 @@ function ProductPage({ slug, store, t, navigate }) {
       const { data: p } = await supabase
         .from("products")
         .select(
-          "id, slug, title_en, title_ar, description_en, description_ar, base_price_kwd, pct_disc, has_options, active"
+          "id, slug, title_en, title_ar, description_en, description_ar, base_price_kwd, pct_disc, has_options, active",
         )
         .eq("slug", decodeURIComponent(slug))
         .eq("active", true)
@@ -111,7 +113,9 @@ function ProductPage({ slug, store, t, navigate }) {
       // Filter options: must be active AND product must be active
       const productActive = p?.active ?? true;
       const rows = Array.isArray(opt?.options_names_prices)
-        ? opt.options_names_prices.filter((r) => productActive && r.active !== false)
+        ? opt.options_names_prices.filter(
+            (r) => productActive && r.active !== false,
+          )
         : [];
       setOptionRows(rows);
       setOptionsTitle(opt?.options_title || "Option");
@@ -128,12 +132,20 @@ function ProductPage({ slug, store, t, navigate }) {
   // Apply SEO when product is available (must be declared before any early returns)
   React.useEffect(() => {
     if (!product) return;
-    const titleLocal = store.lang === "en" ? product.title_en : product.title_ar;
-    const descLocal = store.lang === "en" ? product.description_en : product.description_ar;
-    const selectedRowLocal = optionRows.find((r) => r.name === selectedName) || null;
-    const basePriceLocal = selectedRowLocal ? Number(selectedRowLocal.price_kwd) : Number(product.base_price_kwd);
+    const titleLocal =
+      store.lang === "en" ? product.title_en : product.title_ar;
+    const descLocal =
+      store.lang === "en" ? product.description_en : product.description_ar;
+    const selectedRowLocal =
+      optionRows.find((r) => r.name === selectedName) || null;
+    const basePriceLocal = selectedRowLocal
+      ? Number(selectedRowLocal.price_kwd)
+      : Number(product.base_price_kwd);
     const pctDiscLocal = product.pct_disc ? Number(product.pct_disc) : 0;
-    const priceLocal = pctDiscLocal > 0 ? basePriceLocal * (1 - pctDiscLocal / 100) : basePriceLocal;
+    const priceLocal =
+      pctDiscLocal > 0
+        ? basePriceLocal * (1 - pctDiscLocal / 100)
+        : basePriceLocal;
     const url = `${window.location.origin}/product/${encodeURIComponent(product.slug)}`;
     const mainImage = images?.[0]?.url || null;
     applyProductSEO({
@@ -177,8 +189,6 @@ function ProductPage({ slug, store, t, navigate }) {
   const pctDisc = product.pct_disc ? Number(product.pct_disc) : 0;
   const price = pctDisc > 0 ? basePrice * (1 - pctDisc / 100) : basePrice;
 
-
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div className="space-y-3">
@@ -208,7 +218,11 @@ function ProductPage({ slug, store, t, navigate }) {
                 >
                   <img
                     src={im.url}
-                    alt={store.lang === "en" ? im.alt_en || title : im.alt_ar || title}
+                    alt={
+                      store.lang === "en"
+                        ? im.alt_en || title
+                        : im.alt_ar || title
+                    }
                     loading="lazy"
                     className="h-full w-full object-contain bg-white"
                   />
@@ -304,9 +318,8 @@ function ProductPage({ slug, store, t, navigate }) {
                 setTimeout(() => setAnimatingAdd(false), 1300);
 
                 // Reload cart in store
-                const { getCartLines, getCartCount } = await import(
-                  "./lib/cart.js"
-                );
+                const { getCartLines, getCartCount } =
+                  await import("./lib/cart.js");
                 const lines = await getCartLines();
                 const count = await getCartCount();
                 store.setCart(lines);
@@ -360,26 +373,32 @@ export default function App() {
   const showCategoryBar = route.name === "home" || route.name === "product";
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-800">
-      <Navbar store={store} t={t} />
-      {showCategoryBar && <CategoryRow store={store} t={t} />}
+    <ErrorBoundary>
+      <div className="min-h-dvh bg-slate-50 text-slate-800">
+        <Navbar store={store} t={t} />
+        {showCategoryBar && <CategoryRow store={store} t={t} />}
 
-      {route.name === "home" && <ProductsGrid store={store} t={t} />}
-      {route.name === "product" && (
-        <ProductPage
-          slug={route.params.slug}
-          store={store}
-          t={t}
-          navigate={navigate}
-        />
-      )}
-      {route.name === "checkout" && <CheckoutPage store={store} t={t} />}
-      {route.name === "checkout_return" && <CheckoutReturn store={store} t={t} />}
-      {route.name === "orders" && <OrdersPage store={store} t={t} />}
-      {route.name === "privacy" && <Privacy />}
+        <ErrorBoundary>
+          {route.name === "home" && <ProductsGrid store={store} t={t} />}
+          {route.name === "product" && (
+            <ProductPage
+              slug={route.params.slug}
+              store={store}
+              t={t}
+              navigate={navigate}
+            />
+          )}
+          {route.name === "checkout" && <CheckoutPage store={store} t={t} />}
+          {route.name === "checkout_return" && (
+            <CheckoutReturn store={store} t={t} />
+          )}
+          {route.name === "orders" && <OrdersPage store={store} t={t} />}
+          {route.name === "privacy" && <Privacy />}
+        </ErrorBoundary>
 
-      <Footer />
-      <CartDrawer store={store} t={t} />
-    </div>
+        <Footer />
+        <CartDrawer store={store} t={t} />
+      </div>
+    </ErrorBoundary>
   );
 }

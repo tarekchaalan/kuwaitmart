@@ -108,12 +108,17 @@ export default function CartDrawer({ store, t }) {
       className={`fixed inset-0 z-40 ${
         cartOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Shopping cart"
+      aria-hidden={!cartOpen}
     >
       <div
         className={`absolute inset-0 bg-slate-900/40 transition ${
           cartOpen ? "opacity-100" : "opacity-0"
         }`}
         onClick={() => setCartOpen(false)}
+        aria-label="Close cart"
       />
 
       <aside
@@ -128,12 +133,13 @@ export default function CartDrawer({ store, t }) {
         }`}
       >
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold text-slate-800">
-            <Icon name="cart" /> Cart
-          </div>
+          <h2 className="flex items-center gap-2 font-semibold text-slate-800">
+            <Icon name="cart" aria-hidden="true" /> Cart
+          </h2>
           <button
             onClick={() => setCartOpen(false)}
             className="rounded-full border px-3 py-1 text-sm"
+            aria-label="Close cart"
           >
             ✕
           </button>
