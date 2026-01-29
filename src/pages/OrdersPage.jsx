@@ -27,7 +27,8 @@ export default function OrdersPage({ store, t }) {
           const resp = await supabase
             .from("orders")
             .select(
-              "id, order_number, total_kwd, status, payment_method, created_at, paid_at, coupon_code, payment_ref, name, phone, email, address, notes"
+              `id, order_number, total_kwd, status, payment_method, created_at, paid_at, coupon_code, payment_ref, name, phone, email, address, notes,
+              order_items(id, title_en, title_ar, qty, unit_price_kwd, line_total_kwd, option_values)`
             )
             .or(orStr)
             .in("status", ["paid", "pending", "failed"])
@@ -38,7 +39,8 @@ export default function OrdersPage({ store, t }) {
           const resp = await supabase
             .from("orders")
             .select(
-              "id, order_number, total_kwd, status, payment_method, created_at, paid_at, coupon_code, payment_ref, name, phone, email, address, notes"
+              `id, order_number, total_kwd, status, payment_method, created_at, paid_at, coupon_code, payment_ref, name, phone, email, address, notes,
+              order_items(id, title_en, title_ar, qty, unit_price_kwd, line_total_kwd, option_values)`
             )
             .eq("guest_cookie_id", guestId)
             .in("status", ["paid", "pending", "failed"])
@@ -130,23 +132,11 @@ export default function OrdersPage({ store, t }) {
                   <tr
                     key={r.id}
                     className="border-t hover:bg-slate-50 cursor-pointer"
-                    onClick={async () => {
-                      try {
-                        setActive(r);
-                        setOpen(true);
-                        const supabase = getSupabase();
-                        const { data: its } = await supabase
-                          .from("order_items")
-                          .select(
-                            "id, title_en, title_ar, qty, unit_price_kwd, line_total_kwd, option_values"
-                          )
-                          .eq("order_id", r.id)
-                          .order("id", { ascending: true });
-                        setItems(its || []);
-                      } catch (e) {
-                        console.error("order_items load error", e);
-                        setItems([]);
-                      }
+                    onClick={() => {
+                      // Use prefetched order_items (no N+1 query)
+                      setActive(r);
+                      setItems(r.order_items || []);
+                      setOpen(true);
                     }}
                   >
                     <td className="py-2">{r.order_number || r.id}</td>
