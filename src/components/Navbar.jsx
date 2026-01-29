@@ -6,6 +6,7 @@ import { signIn, signOut, signUp } from "../lib/auth.js";
 import { mergeGuestIntoUserCart } from "../lib/cart.js";
 import { mergeGuestOrdersIntoUser } from "../lib/orders.js";
 import { FaBook } from "react-icons/fa6";
+import { useDebounce } from "../hooks/useDebounce.js";
 
 function AuthModal({
   t,
@@ -47,49 +48,117 @@ function AuthModal({
           {authMode === "signup" && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Full Name</label>
-                <input type="text" value={authData.fullName} onChange={(e)=>setAuthData({ ...authData, fullName: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={authData.fullName}
+                  onChange={(e) =>
+                    setAuthData({ ...authData, fullName: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  required
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Phone</label>
-                <input type="tel" value={authData.phone||""} onChange={(e)=>setAuthData({ ...authData, phone: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={authData.phone || ""}
+                  onChange={(e) =>
+                    setAuthData({ ...authData, phone: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  required
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Building Type</label>
-                  <input value={authData.buildingType||""} onChange={(e)=>setAuthData({ ...authData, buildingType: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Building Type
+                  </label>
+                  <input
+                    value={authData.buildingType || ""}
+                    onChange={(e) =>
+                      setAuthData({ ...authData, buildingType: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Building Number</label>
-                  <input value={authData.buildingNumber||""} onChange={(e)=>setAuthData({ ...authData, buildingNumber: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Building Number
+                  </label>
+                  <input
+                    value={authData.buildingNumber || ""}
+                    onChange={(e) =>
+                      setAuthData({
+                        ...authData,
+                        buildingNumber: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Block Number</label>
-                  <input value={authData.blockNumber||""} onChange={(e)=>setAuthData({ ...authData, blockNumber: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Block Number
+                  </label>
+                  <input
+                    value={authData.blockNumber || ""}
+                    onChange={(e) =>
+                      setAuthData({ ...authData, blockNumber: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Street Number</label>
-                  <input value={authData.streetNumber||""} onChange={(e)=>setAuthData({ ...authData, streetNumber: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Street Number
+                  </label>
+                  <input
+                    value={authData.streetNumber || ""}
+                    onChange={(e) =>
+                      setAuthData({ ...authData, streetNumber: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Area</label>
-                  <input value={authData.area||""} onChange={(e)=>setAuthData({ ...authData, area: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Area
+                  </label>
+                  <input
+                    value={authData.area || ""}
+                    onChange={(e) =>
+                      setAuthData({ ...authData, area: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Floor</label>
-                  <input value={authData.floor||""} onChange={(e)=>setAuthData({ ...authData, floor: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
+                  <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">
+                    Floor
+                  </label>
+                  <input
+                    value={authData.floor || ""}
+                    onChange={(e) =>
+                      setAuthData({ ...authData, floor: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
                 </div>
               </div>
             </>
@@ -130,8 +199,8 @@ function AuthModal({
             {loading
               ? "Loading..."
               : authMode === "login"
-              ? t.login
-              : "Sign Up"}
+                ? t.login
+                : "Sign Up"}
           </button>
         </form>
         <div className="mt-4 text-center">
@@ -148,7 +217,7 @@ function AuthModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -171,6 +240,20 @@ export default function Navbar({ store, t }) {
     fullName: "",
   });
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Local search input state for responsive UI
+  const [localSearch, setLocalSearch] = useState(query);
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Sync debounced value to global query
+  useEffect(() => {
+    setQuery(debouncedSearch);
+  }, [debouncedSearch, setQuery]);
+
+  // Sync global query changes back to local state (e.g., clear from elsewhere)
+  useEffect(() => {
+    setLocalSearch(query);
+  }, [query]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -223,8 +306,9 @@ export default function Navbar({ store, t }) {
           <button
             className="flex items-center gap-2 font-semibold text-slate-800"
             onClick={() => store.navigate("/")}
+            aria-label="Go to homepage"
           >
-            <img src={logoUrl} alt="" className="size-14" />
+            <img src={logoUrl} alt="KuwaitMart logo" className="size-14" />
             <span className="hidden sm:block text-2xl">KuwaitMart</span>
           </button>
 
@@ -232,57 +316,72 @@ export default function Navbar({ store, t }) {
 
           <div className="relative max-w-xl w-full hidden md:block">
             <input
-              value={query}
-              onChange={(e) => store.setQuery(e.target.value)}
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
               placeholder={t.searchAll}
+              aria-label="Search products"
               className="w-full rounded-full border border-slate-300 bg-white px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
             />
             <Icon
               name="search"
               className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400"
+              aria-hidden="true"
             />
           </div>
 
           <button
             onClick={() => setLang(lang === "en" ? "ar" : "en")}
             className="ml-3 rounded-full border px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            aria-label={`Switch to ${lang === "en" ? "Arabic" : "English"}`}
           >
             {t.language}
           </button>
 
-          <nav className="ml-3 flex items-center gap-2">
+          <nav
+            className="ml-3 flex items-center gap-2"
+            aria-label="Main navigation"
+          >
             {!user && (
               <button
                 onClick={() => setShowAuth(true)}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+                aria-label="Log in or sign up"
               >
-                <Icon name="user" />
-                <span className="hidden sm:block">{showAuth ? '' : t.login}</span>
+                <Icon name="user" aria-hidden="true" />
+                <span className="hidden sm:block">
+                  {showAuth ? "" : t.login}
+                </span>
               </button>
             )}
             <button
               onClick={() => store.navigate("/orders")}
               className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+              aria-label="View my orders"
             >
-              <FaBook />
+              <FaBook aria-hidden="true" />
               <span className="hidden sm:block">{t.myOrders}</span>
             </button>
             {user && (
               <button
                 onClick={handleLogout}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+                aria-label="Log out"
               >
-                <Icon name="logout" />
+                <Icon name="logout" aria-hidden="true" />
                 <span className="hidden sm:block">{t.logout}</span>
               </button>
             )}
             <button
               onClick={() => setCartOpen(true)}
               className="relative inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+              aria-label={`Open cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
             >
-              <Icon name="cart" />
+              <Icon name="cart" aria-hidden="true" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span
+                  className="absolute -top-1 -right-1 bg-emerald-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                  aria-live="polite"
+                >
                   {cartCount}
                 </span>
               )}
@@ -292,9 +391,10 @@ export default function Navbar({ store, t }) {
 
         <div className="md:hidden px-4 pb-3">
           <input
-            value={query}
-            onChange={(e) => store.setQuery(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             placeholder={t.searchAll}
+            aria-label="Search products"
             className="w-full rounded-full border border-slate-300 bg-white px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
           />
         </div>
